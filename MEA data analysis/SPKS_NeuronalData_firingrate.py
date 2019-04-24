@@ -26,19 +26,59 @@ from class_SPKS_NeuronalData import SPKS_NeuronalData
 
 # ----------------------------------------------------------------------------------------------------------------- #
 
-# loadmat will import your *.mat datafile as a dictionary, PASTE YOUR FOLDER HERE. #
+# Second block defines the methods for the calculations #
 
 # ----------------------------------------------------------------------------------------------------------------- #
 
-# OLD ADVICE - JULY 2018 -- NOT NEEDED! #
+def electrode_FR():
 
-# Useful advice: Problem is with the string. Here, \U starts an eight-character Unicode escape, such as '\U00014321`. #
-# In your code, the escape is followed by the character 's', which is invalid. #
-# Duplicate all the backslashes #
+    firingrates = {}
+
+    # Compute the record duration to seconds from ms #
+
+    duration_ms = spikedata.spiketimes['duration']
+    duration_s = duration_ms/1000
+
+    for key in spikedata.spikeshapes:
+
+        # Compute the total spike number per electrode #
+
+        spike_number = len(spikedata.spikeshapes[key])
+
+        # Compute and store the firing rates #
+
+        electrode_fr_s = spike_number/duration_s
+        firingrates[key] = electrode_fr_s
+
+#            print('Electrode', key, 'has a firing rate of', electrode_fr_s)
+
+    return firingrates
+
+def MEA_overall_firingrate():
+
+    individual_fr = electrode_FR()
+    spikecount = 0
+
+    for key in individual_fr:
+
+        spikecount = individual_fr[key] + spikecount
+
+    overall_firingrate_s = spikecount/60
+
+    return overall_firingrate_s
 
 # ----------------------------------------------------------------------------------------------------------------- #
 
-print("\n \n Welcome to the University of Reading - Brain Embodiment Laboratory (SBS - BEL) \n \n \n This script was designed compute the firing rate of recordings from a folder containing *.mat files. \n \n \n You NEED to have the original *.mat files processed with the MCD_files_export_uV_and_mS_plus_METADATA.m script \n \n \n Your *.mat files must be inside folders named with the MEA number \n \n \n")
+# User input acquisition  #
+
+# ----------------------------------------------------------------------------------------------------------------- #
+
+
+print("\n \n Welcome to the University of Reading - Brain Embodiment Laboratory (SBS - BEL) \n \n \n "
+      "This script was designed compute the firing rate of recordings from a folder containing *.mat files. \n \n "
+      "You NEED to have the original *.mat files processed with the MCD_files_export_uV_and_mS_plus_METADATA.m script"
+      " \n \n Your *.mat files must be inside folders named with the MEA number. \n \n "
+      "Please insert the full path of that folder here. \n \n ")
 
 full_path = input()
 
@@ -82,9 +122,7 @@ for key in MEAs_paths.keys():
 
 # ----------------------------------------------------------------------------------------------------------------- #
 
-# Second Block #
-
-# Initialises the object of NeuronalData and imports the data files. #
+# Then initialises the object of NeuronalData and imports the data files. #
 
 # ----------------------------------------------------------------------------------------------------------------- #
 
@@ -97,7 +135,7 @@ for key in MEAs_paths.keys():
 
 # ----------------------------------------------------------------------------------------------------------------- #
 
-# Copying the data #
+# Performs a deep copy of the original data #
 
 # ----------------------------------------------------------------------------------------------------------------- #
 
@@ -106,43 +144,9 @@ for key in MEAs_paths.keys():
 
 # ----------------------------------------------------------------------------------------------------------------- #
 
-    def electrode_FR():
+# Runs the electrophysiological analysis #
 
-        firingrates = {}
-
-        # Compute the record duration to seconds from ms #
-
-        duration_ms = spikedata.spiketimes['duration']
-        duration_s = duration_ms/1000
-
-        for key in spikedata.spikeshapes:
-
-            # Compute the total spike number per electrode #
-
-            spike_number = len(spikedata.spikeshapes[key])
-
-            # Compute and store the firing rates #
-
-            electrode_fr_s = spike_number/duration_s
-            firingrates[key] = electrode_fr_s
-
-#            print('Electrode', key, 'has a firing rate of', electrode_fr_s)
-
-        return firingrates
-
-    def MEA_overall_firingrate():
-
-        individual_fr = electrode_FR()
-        spikecount = 0
-
-        for key in individual_fr:
-
-            spikecount = individual_fr[key] + spikecount
-
-        overall_firingrate_s = spikecount/60
-
-        return overall_firingrate_s
-
+# ----------------------------------------------------------------------------------------------------------------- #
 
     FR = MEA_overall_firingrate()
 
