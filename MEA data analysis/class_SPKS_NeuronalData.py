@@ -7,7 +7,7 @@ class SPKS_NeuronalData:
     spiketimes = {}
     spikeshapes = {}
 
-    def __init__(self, shapedata,time_array, occurrence_ms, channelids):
+    def __init__(self, shapedata, time_array, occurrence_ms, channelids):
 
         # Imports data #
 
@@ -26,23 +26,20 @@ class SPKS_NeuronalData:
         for channel in range(0, 60):
 
             key = recorded_channelids['channelID_matrix'][channel][0][0]  # First column has the channel IDs #
-            self.spiketimes[key] = list()
 
             spike_number = len(input_occurrencedata['spiketimes'][0:60][channel][0])
 
             if spike_number > 4:  # Channels with less than 4 spikes are excluded from further analysis #
 
+                # Stores the Spike Shapes #
+
                 self.spikeshapes[key] = list()
                 transpose = np.transpose(input_shapedata['spikedata_cell'][0:60][channel][0])
                 self.spikeshapes[key] = transpose
 
-            else:
-
-                del self.spiketimes[key]
-
                 # Fills the arrays with the times of spikes in ms #
 
-            if spike_number > 4:
+                self.spiketimes[key] = list()
 
                 for spike_event in range(0, spike_number):
 
@@ -53,6 +50,7 @@ class SPKS_NeuronalData:
     def exclusion(self):
 
         print("Please enter one channel to be excluded (enter zero to skip to the next MEA recording):")
+
         channel = int(input())
 
         while channel != 0:
