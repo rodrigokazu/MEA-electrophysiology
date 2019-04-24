@@ -52,7 +52,7 @@ class SPKS_NeuronalData:
 
     def exclusion(self):
 
-        print("Please enter one channel to be excluded")
+        print("Please enter one channel to be excluded (enter zero to skip to the next MEA recording):")
         channel = int(input())
 
         while channel != 0:
