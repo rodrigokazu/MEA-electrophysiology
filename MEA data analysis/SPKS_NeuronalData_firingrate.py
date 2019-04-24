@@ -38,21 +38,13 @@ from class_SPKS_NeuronalData import SPKS_NeuronalData
 
 # ----------------------------------------------------------------------------------------------------------------- #
 
-print("\n \n Welcome to the University of Reading - Brain Embodiment Laboratory (SBS - BEL) \n \n \n This script was designed compute the firing rate of recordings from a folder containing *.mat files. \n \n \n You NEED to have the original *.mat files processed with the MCD_files_export_uV_and_mS_plus_METADATA.m script \n \n \n  Your *.mat files must be inside folders named with the MEA number \n \n \n")
+print("\n \n Welcome to the University of Reading - Brain Embodiment Laboratory (SBS - BEL) \n \n \n This script was designed compute the firing rate of recordings from a folder containing *.mat files. \n \n \n You NEED to have the original *.mat files processed with the MCD_files_export_uV_and_mS_plus_METADATA.m script \n \n \n Your *.mat files must be inside folders named with the MEA number \n \n \n")
 
 full_path = input()
 
 path = Path(full_path)
 
 MEAs_paths = {}
-
-for path in path.iterdir():
-
-    if path.is_dir():
-
-        path_to_string = str(path)
-        key = path_to_string[-5:]
-        MEAs_paths[key] = path
 
 # ----------------------------------------------------------------------------------------------------------------- #
 
@@ -76,9 +68,12 @@ for path in path.iterdir():
             key = path_to_string[-4:]
             MEAs_paths[key] = str(path_to_string)
 
-f = open('.\..\Analysis_Output.txt', 'w')    # Writes the analysis into a *.txt file #
-f.write('\n \n')
-f.write(full_path)
+# Writes the analysis into a *.txt file #
+
+file = full_path + "\Debug_Output_2019.txt"
+f = open(file, 'w')
+f.write("Folder analysed: " + full_path)
+f.write(str(datetime.datetime.now().strftime(" | Date: %d-%m-%y Time: %H-%M \n \n")))
 
 for key in MEAs_paths.keys():
 
@@ -98,7 +93,7 @@ for key in MEAs_paths.keys():
     channelids = folder + MEA + '_correct_electrode_order.mat'
     occurrence_ms = folder + MEA + '_spiketimes_ms.mat'
 
-    spikedata = SPKS_NeuronalData(shapedata,time_array, occurrence_ms, channelids)
+    spikedata = SPKS_NeuronalData(shapedata, time_array, occurrence_ms, channelids)
 
 # ----------------------------------------------------------------------------------------------------------------- #
 
@@ -153,10 +148,9 @@ for key in MEAs_paths.keys():
 
     # Writes the analysis in a *.txt file #
 
-    f.write('\n \n')
+    f.write('\n')
 
-    f.write(str(datetime.datetime.now().strftime("Date: %d-%m-%y Time: %H-%M")))
-    f.write(' Your MEA ' + str(key) + ' has ' + str(len(spikedata.spikeshapes.keys())) + ' active channels')
-    f.write(' and your MEA ' + str(key) + ' firing rate is ' + str(FR))
+    f.write('Your MEA ' + str(key) + ' has ' + str(len(spikedata.spikeshapes.keys())) + ' active channels')
+    f.write(' and your MEA ' + str(key) + ' firing rate is ' + str(FR) + '. \n')
 
 f.close()
