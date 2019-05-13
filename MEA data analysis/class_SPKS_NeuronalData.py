@@ -1,14 +1,15 @@
 import scipy.io
 import numpy as np
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 
 class SPKS_NeuronalData:
 
-    spiketimes = {}
-    spikeshapes = {}
-
     def __init__(self, shapedata, time_array, occurrence_ms, channelids):
+
+        self.spiketimes = {}
+        self.spikeshapes = {}
 
         # Imports data #
 
@@ -60,11 +61,11 @@ class SPKS_NeuronalData:
             del self.spikeshapes[str(channel)]
             channel = input()
 
-    # --------------------------------------------------------------------------------------------- #
+# ----------------------------------------------------------------------------------------------------------------- #
 
-    # Methods for electrophysiological calculations #
+# Methods for electrophysiological calculations #
 
-    # --------------------------------------------------------------------------------------------- #
+# ----------------------------------------------------------------------------------------------------------------- #
 
     def electrode_FR(self):
 
@@ -76,6 +77,7 @@ class SPKS_NeuronalData:
         duration_s = duration_ms / 1000
 
         for key in self.spikeshapes:
+
             # Compute the total spike number per electrode #
 
             spike_number = len(self.spikeshapes[key])
@@ -101,9 +103,13 @@ class SPKS_NeuronalData:
 
         return overall_firingrate_s
 
-    # Computes burst counts and profiles according to Dranias, 2015 #
+# ----------------------------------------------------------------------------------------------------------------- #
 
-    # Bursts were defined as the presence of four spikes in a 100ms with an interval of 50ms to the next spike after #
+# Computes burst counts and profiles according to Dranias, 2015 #
+
+# Bursts were defined as the presence of four spikes in a 100ms with an interval of 50ms to the next spike after #
+
+# ----------------------------------------------------------------------------------------------------------------- #
 
     def burstdranias(self):
 
@@ -192,15 +198,19 @@ class SPKS_NeuronalData:
 
         return burstcount, electrodecount, burstprofile
 
-    # --------------------------------------------------------------------------------------------- #
+# ----------------------------------------------------------------------------------------------------------------- #
 
-    # Methods for data visualisation #
+# Methods for data visualisation #
 
-    # --------------------------------------------------------------------------------------------- #
+# ----------------------------------------------------------------------------------------------------------------- #
+
+# Show a default plot with a kernel density estimate and histogram with bin size determined automatically #
+
+# ----------------------------------------------------------------------------------------------------------------- #
 
     def hist_ISI(self, MEA):
 
-        fig = plt.figure()
+        fig = plt.figure(dpi=300)
 
         intervals = dict()
         overallISI = list()
@@ -227,10 +237,8 @@ class SPKS_NeuronalData:
                 final_position = final_position + 1
                 initial_position = initial_position + 1
 
-        fig.add_subplot()
-        plt.hist(overallISI, bins=100, label=MEA)  # Plot per MEA
-        plt.legend(loc=1, prop={'size': 8})  # Use for the electrode specific plot
-        plt.ylabel('Frequency')
-        plt.xticks(np.linspace(0, 7000))
-        plt.xlabel('ISIs (ms)')
-        plt.show()
+        ax = sns.distplot(overallISI)
+        ax.set(title='MEA '+MEA)
+        print(overallISI)
+
+        return overallISI

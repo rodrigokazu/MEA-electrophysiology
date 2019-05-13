@@ -9,7 +9,7 @@
 # ----------------------------------------------------------------------------------------------------------------- #
 
 # Written by Rodrigo Kazu #
-# Any enquiries to r.siqueiradesouza@pgr.reading.ac.uk #
+# Any enquiries to r.siqueiradesouza@sheffield.ac.uk #
 
 # ----------------------------------------------------------------------------------------------------------------- #
 
@@ -87,8 +87,6 @@ for key in MEAs_paths.keys():
     occurrence_ms = folder + MEA + '_spiketimes_ms.mat'
 
     spike_data = SPKS_NeuronalData(shapedata, time_array, occurrence_ms, channelids)
-
-#    f.write(occurrence_ms)
 
 # ----------------------------------------------------------------------------------------------------------------- #
 
