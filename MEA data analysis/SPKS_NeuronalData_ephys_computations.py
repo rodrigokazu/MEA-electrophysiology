@@ -65,10 +65,10 @@ for path in path.iterdir():
 
 # Writes the analysis into a *.txt file #
 
-# file = full_path + "\Debug_Output_exclusionless.txt"
-# f = open(file, 'w')
-# f.write("Folder analysed: " + full_path)
-# f.write(str(datetime.datetime.now().strftime(" | Date: %d-%m-%y Time: %H-%M \n \n")))
+file = full_path + "\Debug_Output_ISI.txt"
+f = open(file, 'w')
+f.write("Folder analysed: " + full_path)
+f.write(str(datetime.datetime.now().strftime(" | Date: %d-%m-%y Time: %H-%M \n \n")))
 
 for key in MEAs_paths.keys():
 
@@ -107,15 +107,15 @@ for key in MEAs_paths.keys():
 
     print('MEA analysed: ', MEA)
 
-    spike_data.hist_ISI(MEA)
+    ISI = spike_data.hist_ISI(MEA)
 
     # Writes the analysis in a *.txt file #
 
-#    f.write('\n')
+    f.write('\n')
 
-#    f.write('Your MEA ' + MEA + ' has ' + str(len(spike_data.spiketimes.keys())-1) + ' active channels. \n')
-#    f.write(' and your MEA ' + str(key) + ' firing rate is ' + str(FR) + '. \n')
-#    f.write(' Burst profile: ' + str(Burst) + '\n')
+    f.write('Your MEA ' + MEA + ' has ' + str(len(spike_data.spiketimes.keys())-1) + ' active channels. \n')
+#   f.write(' and your MEA ' + str(key) + ' firing rate is ' + str(FR) + '. \n')
+    f.write(' ISI array: ' + str(ISI) + '\n')
 
 #    del Burst
     del spike_data
