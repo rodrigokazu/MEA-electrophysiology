@@ -20,7 +20,16 @@
 from class_SPKS_NeuronalData import SPKS_NeuronalData
 from copy import deepcopy
 import datetime
+import matplotlib.cbook
+import matplotlib.pyplot as plt
 from pathlib import Path
+import warnings
+
+# Methods for data visualisation first #
+
+warnings.filterwarnings("ignore", category=matplotlib.cbook.mplDeprecation)  # Ignores pointless matplotlib warnings
+plt.rcParams.update({'font.size': 10})
+
 
 # ----------------------------------------------------------------------------------------------------------------- #
 
@@ -63,12 +72,20 @@ for path in path.iterdir():
             key = path_to_string[-4:]
             MEAs_paths[key] = str(path_to_string)
 
-# Writes the analysis into a *.txt file #
 
-file = full_path + "\Debug_Output_ISI.txt"
-f = open(file, 'w')
-f.write("Folder analysed: " + full_path)
-f.write(str(datetime.datetime.now().strftime(" | Date: %d-%m-%y Time: %H-%M \n \n")))
+# File handling #
+
+# file = full_path + "\Debug_Output_IBI_500ms.txt"
+# f = open(file, 'w')
+#nf.write("Folder analysed: " + full_path)
+# f.write(str(datetime.datetime.now().strftime(" | Date: %d-%m-%y Time: %H-%M \n ")))
+
+# Figure and plot handling #
+
+# fig = plt.figure(dpi=300)  # Creates a figure for data visualisation #
+# plotnumber = 1
+
+# Loops through MEAs #
 
 for key in MEAs_paths.keys():
 
@@ -105,17 +122,19 @@ for key in MEAs_paths.keys():
 
     print('MEA analysed: ', MEA)
 
-    ISI = spike_data.hist_ISI(MEA)
+    spike_data.hist_ISI_MEA(MEA)
+
+#    fig.add_subplot(1, 2, plotnumber)
+
+#    plotnumber = plotnumber + 1
 
     # Writes the analysis in a *.txt file #
 
-    f.write('\n')
+#    f.write('\n')
 
-    f.write('Your MEA ' + MEA + ' has ' + str(len(spike_data.spiketimes.keys())-1) + ' active channels. \n')
+#    f.write('Your MEA ' + MEA + ' has ' + str(len(spike_data.spiketimes.keys())-1) + ' active channels. \n\n')
 #   f.write(' and your MEA ' + str(key) + ' firing rate is ' + str(FR) + '. \n')
-    f.write(' ISI array: ' + str(ISI) + '\n')
+#    f.write('Burst count per electrode: ' + str(spike_data.burstdranias_100ms(MEA)) + '\n')
 
-#    del Burst
-    del spike_data
 
 # f.close()
