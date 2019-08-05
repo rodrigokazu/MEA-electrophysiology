@@ -15,12 +15,8 @@
 
 # ----------------------------------------------------------------------------------------------------------------- #
 
-from class_RAW_NeuronalData import RAW_NeuronalData
-import gc
-import numpy as np
+from class_RAW_NeuronalData import *
 from pathlib import Path
-from scipy import sparse as sp
-import time
 
 # ----------------------------------------------------------------------------------------------------------------- #
 
@@ -38,7 +34,7 @@ def folderwide_spike_detection(MEAs_paths):
 
         raw_timeseries = object_constructor(folder, MEA)
 
-        recursive_spike_detection(raw_timeseries)
+        raw_timeseries.recursive_spike_detection()
 
 
 def MEA_path_acquisition(full_path):
@@ -83,54 +79,6 @@ def object_constructor(folder, MEA):
 
     return raw_data
 
-
-def recursive_spike_detection(raw_timeseries):
-
-    spiketimes = {}  # Dictionary that will contain the detected spiketimes
-    valid_channels = list()  # List of valid channels, with 4 or more spikes and visually inspected
-    threshold_array = {}  # Dictionary that will contain the threshold computations
-    recur_spiketimes = {}
-    recur_spikevoltages = {}
-    detection_number = {}
-    print('Used dicts created.')
-    flagmatrix = sp.csr_matrix([90, 6000000])  # This matrix will contain the positions to be ignored #
-
-    # ------------------------------------------------------------------------------------------------------------ #
-
-    for key in raw_timeseries.mcd_data:  # Creates the threshold lists
-
-        if key != 'ms':
-
-            threshold_array[key] = list()
-
-    for key in raw_timeseries.mcd_data:
-
-        if key != 'ms':
-
-            size = raw_timeseries.mcd_data[key].size
-            threshold = -5.5 * np.std(raw_timeseries.mcd_data[key])  # Sets the threshold in 5.5 STD
-            threshold_array[key].append(threshold)
-            print('Threshold for channel', key, 'is', threshold)
-
-            for spikes in range(0, size - 1):  # Flags detects spikes
-
-                if raw_timeseries.mcd_data[key][spikes] < threshold:
-
-                    flagmatrix[int(key)][spikes] = True
-                    continue
-
-    # File handling #
-
-    f = open('.\..\Analysis_Output.txt', 'w')
-    f.write(str(flagmatrix))
-    f.close()
-
-    # Memory cleaning #
-
-    del raw_timeseries
-    gc.collect()
-    print(time.asctime(time.localtime(time.time())))  # Prints the current time for profiling
-
 # ----------------------------------------------------------------------------------------------------------------- #
 
 # Methods testing #
@@ -144,4 +92,3 @@ full_path = input()
 MEAs_paths = MEA_path_acquisition(full_path)
 
 folderwide_spike_detection(MEAs_paths)
-
