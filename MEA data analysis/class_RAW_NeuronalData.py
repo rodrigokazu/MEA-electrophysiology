@@ -1,6 +1,10 @@
-from scipy import io, signal
+import gc
 import h5py
 import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from scipy import io, signal, sparse as sp
+import time
 
 
 class RAW_NeuronalData:
@@ -70,3 +74,87 @@ class RAW_NeuronalData:
                 self.mcd_data[key] = signal.filtfilt(b, a, self.mcd_data[key])
 
         return self
+
+    def recursive_spike_detection(self, MEA, folder):
+
+        spiketimes = {}  # Dictionary that will contain the detected spiketimes
+        valid_channels = list()  # List of valid channels, with 4 or more spikes and visually inspected
+        threshold_array = {}  # Dictionary that will contain the threshold computations
+        recur_spiketimes = {}
+        recur_spikevoltages = {}
+        detection_number = {}
+
+        instant_spike_cutout = np.zeros(75)
+
+        xaxis = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75]
+
+        flagmatrix = sp.csr_matrix((90, 6000000), dtype='float64')  # Positions to be ignored #
+
+        # ------------------------------------------------------------------------------------------------------------ #
+
+        for key in self.mcd_data:  # Creates the threshold lists
+
+            if key != 'ms':
+
+                threshold_array[key] = list()
+
+        for key in self.mcd_data:
+
+            fig = plt.figure()
+
+            if key != 'ms':
+
+                size = len(self.mcd_data[key])
+                threshold = -5.5 * np.std(self.mcd_data[key])  # Sets the threshold in 5.5 STD
+                threshold_array[key].append(threshold)
+                spikes = 0
+
+                while spikes < size:  # Flags detects spikes
+
+                    cutout = 0
+
+                    if self.mcd_data[key][spikes] < threshold:
+
+                        fig = plt.figure()
+
+                        while self.mcd_data[key][spikes+cutout] >= self.mcd_data[key][spikes+cutout+1] and cutout < 75:
+
+                            cutout = cutout + 1
+
+                        spike_apex = spikes + cutout  # Lowest point of the spike (i.e. spike time)
+
+                        for backwards in range(0, 25):  # Flags the descent of the spike
+
+                            flagmatrix[int(key), int(spike_apex - backwards)] = True
+                            instant_spike_cutout[int(24 - backwards)] = self.mcd_data[key][int(spike_apex - backwards)]
+
+                        for forwards in range(0, 50):  # Flags the raise of the spike
+
+                            flagmatrix[int(key), spike_apex + forwards] = True
+                            instant_spike_cutout[24 + forwards] = self.mcd_data[key][spike_apex + forwards]
+
+                        ax = sns.lineplot(data=instant_spike_cutout)
+                        ax.set(ylabel='Voltage', xlabel='Data point number', title='Electrode_'+key, xticks=xaxis)
+                        plt.show()
+
+                        instant_spike_cutout = np.zeros(75)
+                        spikes = spike_apex + 50
+
+                    else:
+
+                        spikes = spikes + 1
+
+
+        # File handling #
+
+#        file = folder + MEA + "_Analysis_Output.txt"
+#        f = open(file, 'w')
+#        flagmatrix = flagmatrix.todense()
+#        f.write(str(flagmatrix))
+#        f.close()
+
+        # Memory cleaning #
+
+        del self
+        gc.collect()
+        print(time.asctime(time.localtime(time.time())))  # Prints the current time for profiling
