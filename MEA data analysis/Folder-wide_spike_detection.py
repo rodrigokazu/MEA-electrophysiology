@@ -85,7 +85,10 @@ def object_constructor(folder, MEA):
 
 # ----------------------------------------------------------------------------------------------------------------- #
 
-print("\n \n Welcome to the University of Reading - Brain Embodiment Laboratory (SBS - BEL) \n \n \n This script was designed compute the firing rate of recordings from a folder containing *.mat files. \n \n \n You NEED to have the original *.mat files processed with the MCD_files_export_uV_and_mS_plus_METADATA.m script \n \n \n Your *.mat files must be inside folders named with the MEA number \n \n \n")
+print("\n Welcome to the University of Reading - Brain Embodiment Laboratory (SBS - BEL) \n "
+      "This script was designed compute the firing rate of recordings from a folder containing *.mat files. \n "
+      "You NEED to have the original *.mat files processed with the MCD_files_export_uV_and_mS_plus_METADATA.m script"
+      " \n Your *.mat files must be inside folders named with the MEA number \n")
 
 full_path = input()
 
