@@ -97,6 +97,7 @@ class RAW_NeuronalData:
             if key != 'ms':
 
                 threshold_array[key] = list()
+                recur_spiketimes[key] = list()
 
         for key in self.mcd_data:
 
@@ -122,22 +123,17 @@ class RAW_NeuronalData:
                             cutout = cutout + 1
 
                         spike_apex = spikes + cutout  # Lowest point of the spike (i.e. spike time)
+                        recur_spiketimes[key].append(self.mcd_data['ms'][spike_apex])
+                        print("New spike at ", self.mcd_data['ms'][spike_apex])
 
                         for backwards in range(0, 25):  # Flags the descent of the spike
 
                             flagmatrix[int(key), int(spike_apex - backwards)] = True
-                            instant_spike_cutout[int(24 - backwards)] = self.mcd_data[key][int(spike_apex - backwards)]
 
                         for forwards in range(0, 50):  # Flags the raise of the spike
 
                             flagmatrix[int(key), spike_apex + forwards] = True
-                            instant_spike_cutout[24 + forwards] = self.mcd_data[key][spike_apex + forwards]
 
-                        ax = sns.lineplot(data=instant_spike_cutout)
-                        ax.set(ylabel='Voltage', xlabel='Data point number', title='Electrode_'+key, xticks=xaxis)
-                        plt.show()
-
-                        instant_spike_cutout = np.zeros(75)
                         spikes = spike_apex + 50
 
                     else:
@@ -147,11 +143,10 @@ class RAW_NeuronalData:
 
         # File handling #
 
-#        file = folder + MEA + "_Analysis_Output.txt"
-#        f = open(file, 'w')
-#        flagmatrix = flagmatrix.todense()
-#        f.write(str(flagmatrix))
-#        f.close()
+        file = folder + MEA + "_Analysis_Output.txt"
+        f = open(file, 'w')
+        f.write(str(recur_spiketimes))
+        f.close()
 
         # Memory cleaning #
 
