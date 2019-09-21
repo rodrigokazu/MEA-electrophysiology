@@ -24,17 +24,19 @@ from pathlib import Path
 
 # ----------------------------------------------------------------------------------------------------------------- #
 
+
 def folderwide_spike_detection(MEAs_paths):
 
     for key in MEAs_paths.keys():
 
         folder = str(MEAs_paths[key]) + "\\"
         MEA = str(key)
-        print('Running the analysis for MEA', MEA, 'inside folder', folder)
+
+        print('Running the analysis for MEA', MEA, 'inside folder', folder, 'at', time.asctime(time.localtime(time.time())))
 
         raw_timeseries = object_constructor(folder, MEA)
 
-        raw_timeseries.recursive_spike_detection()
+        raw_timeseries.recursive_spike_detection(MEA, folder)
 
 
 def MEA_path_acquisition(full_path):
@@ -69,15 +71,17 @@ def object_constructor(folder, MEA):
     time_array = folder + MEA + '_time_array_ms.mat'
     channelids = folder + MEA + '_correct_electrode_order.mat'
 
-    print(time.asctime(time.localtime(time.time())))  # Prints the current time for profiling
-
     raw_data = RAW_NeuronalData(uv_data, time_array, channelids)
 
-    print('RAW_NeuronalData object created!')
+    print('RAW_NeuronalData object created at ', time.asctime(time.localtime(time.time())))  # For profiling
 
-    print(time.asctime(time.localtime(time.time())))  # Prints the current time for profiling
+    # 20 Hz High Pass filtering #
 
-    return raw_data
+    filtered_data = raw_data.highpass()
+
+    print('Data filtered (20Hz High Pass) at', time.asctime(time.localtime(time.time())))
+
+    return filtered_data
 
 # ----------------------------------------------------------------------------------------------------------------- #
 
@@ -85,10 +89,10 @@ def object_constructor(folder, MEA):
 
 # ----------------------------------------------------------------------------------------------------------------- #
 
-print("\n Welcome to the University of Reading - Brain Embodiment Laboratory (SBS - BEL) \n "
-      "This script was designed compute the firing rate of recordings from a folder containing *.mat files. \n "
-      "You NEED to have the original *.mat files processed with the MCD_files_export_uV_and_mS_plus_METADATA.m script"
-      " \n Your *.mat files must be inside folders named with the MEA number \n")
+print("\n \n Welcome to the University of Reading - Brain Embodiment Laboratory (SBS - BEL) \n "
+      "This module was designed evaluate the firing of recordings from a folder containing *.mat files. \n"
+      " You NEED to have the original *.mat files processed with the MCD_files_export_uV_and_mS_plus_METADATA.m script."
+      " \n Your *.mat files must be inside folders named with the MEA number, please insert the complete folder path: ")
 
 full_path = input()
 

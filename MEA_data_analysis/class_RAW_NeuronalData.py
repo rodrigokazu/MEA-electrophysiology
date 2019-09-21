@@ -1,3 +1,4 @@
+from copy import deepcopy
 import gc
 import h5py
 import numpy as np
@@ -74,81 +75,119 @@ class RAW_NeuronalData:
 
         return self
 
-    def recursive_spike_detection(self, MEA, folder):
+    def recursive_spike_detection(self):
 
-        spiketimes = {}  # Dictionary that will contain the detected spiketimes
-        valid_channels = list()  # List of valid channels, with 4 or more spikes and visually inspected
-        threshold_array = {}  # Dictionary that will contain the threshold computations
-        recur_spiketimes = {}
-        recur_spikevoltages = {}
-        detection_number = {}
+        original_raw_timeseries = deepcopy(self)
+        print('Now copying the time series.')
 
-        instant_spike_cutout = np.zeros(75)
+        spiketimes = dict()  # Dictionary that will contain the detected spiketimes
+        spikeshapes = dict()  # Dictionary that will contain the detected spikeshapes
+        spikeapexes = dict()  # Dictionary that will contain the detected spikeapexes
+        valid_channels = list()  # List of valid channels, with 4 or more spikes and visually inspected #
+        threshold_array = dict()  # Dictionary that will contain the threshold computations
 
-        xaxis = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75]
-
-        flagmatrix = sp.csr_matrix((90, 6000000), dtype='float64')  # Positions to be ignored #
+        detection_number = dict()
 
         # ------------------------------------------------------------------------------------------------------------ #
 
-        for key in self.mcd_data:  # Creates the threshold lists
+        for key in self.mcd_data:  # Creates the relevant lists #
 
             if key != 'ms':
 
                 threshold_array[key] = list()
-                recur_spiketimes[key] = list()
+                spiketimes[key] = list()
+                spikeshapes[key] = dict()
+                spikeapexes[key] = list()
 
-        for key in self.mcd_data:
-
-            fig = plt.figure()
+        for key in self.mcd_data:  # Runs the actual detection per electrode #
 
             if key != 'ms':
 
-                size = len(self.mcd_data[key])
-                threshold = -5.5 * np.std(self.mcd_data[key])  # Sets the threshold in 5.5 STD
-                threshold_array[key].append(threshold)
-                spikes = 0
+                detection = 1
+                round = 1
 
-                while spikes < size:  # Flags detects spikes
+                while detection == 1:
 
-                    cutout = 0
+                    figpath = "C:\\Users\\rodri\\Dropbox\\PhD\\Thesis\\Analysis Pipeline\\BEL_Datafiles_and_Scripts" \
+                            "\\BEL_Python_Files\\Debug graphs\\Dynamic threshold localtest\\MEA_10672_DIV21_Channel_"
 
-                    if self.mcd_data[key][spikes] < threshold:
-
-                        fig = plt.figure()
-
-                        while self.mcd_data[key][spikes+cutout] >= self.mcd_data[key][spikes+cutout+1] and cutout < 75:
-
-                            cutout = cutout + 1
-
-                        spike_apex = spikes + cutout  # Lowest point of the spike (i.e. spike time)
-                        recur_spiketimes[key].append(self.mcd_data['ms'][spike_apex])
-                        print("New spike at ", self.mcd_data['ms'][spike_apex])
-
-                        for backwards in range(0, 25):  # Flags the descent of the spike
-
-                            flagmatrix[int(key), int(spike_apex - backwards)] = True
-
-                        for forwards in range(0, 50):  # Flags the raise of the spike
-
-                            flagmatrix[int(key), spike_apex + forwards] = True
-
-                        spikes = spike_apex + 50
-
-                    else:
-
-                        spikes = spikes + 1
-
-
-        # File handling #
-
-        file = folder + MEA + "_Analysis_Output.txt"
-        f = open(file, 'w')
-        f.write(str(recur_spiketimes))
-        f.close()
-
-        # Memory cleaning #
+                    plot_rawdata_singlechannel(self.mcd_data[key], key, round, figpath)
+                    detection = self.dynamic_thresholding(key, spiketimes, spikeshapes, spikeapexes, threshold_array)
+                    round = round + 1
 
         del self
         gc.collect()
         print(time.asctime(time.localtime(time.time())))  # Prints the current time for profiling
+
+    def dynamic_thresholding(self, key, spiketimes, spikeshapes, spikeapexes, threshold_array):
+
+        detection = 0
+
+        size = len(self.mcd_data[key])
+        threshold = -5.5 * np.std(self.mcd_data[key])  # Sets the threshold in 5.5 STD #
+        threshold_array[key].append(threshold)
+
+        spikes = 0
+        occurence = 0
+
+        while spikes < size:  # Flags detected spikes #
+
+            cutout = 0
+
+            if self.mcd_data[key][spikes] < threshold:
+
+                detection = 1
+
+                while self.mcd_data[key][spikes+cutout] >= self.mcd_data[key][spikes+cutout+1] and cutout < 75:
+
+                    cutout = cutout + 1
+
+                spike_apex = spikes + cutout  # Lowest point of the spike (i.e. spike time) #
+
+                spiketimes[key].append(self.mcd_data['ms'][spike_apex])
+                spikeapexes[key].append(self.mcd_data[key][spike_apex])
+                spikeshapes[key][occurence] = np.zeros(75)
+
+                for backwards in range(0, 25):  # Flags the descent of the spike
+
+                    spikeshapes[key][occurence][24 - backwards] = self.mcd_data[key][int(spike_apex - backwards)]
+
+                for forwards in range(0, 50):  # Flags the raise of the spike
+
+                    spikeshapes[key][occurence][24 + forwards] = self.mcd_data[key][spike_apex + forwards]
+
+                spikes = spike_apex - 25  # Sets the investigated point to the beginning of the spike before removal
+
+                for del_backwards in range(0, 25):  # Clears for dynamic thresholding
+
+                    self.mcd_data[key] = np.delete(self.mcd_data[key], spike_apex - del_backwards)
+
+                for del_forwards in range(0, 50):   # Clears for dynamic thresholding
+
+                    self.mcd_data[key] = np.delete(self.mcd_data[key], spike_apex + del_forwards)
+
+                size = len(self.mcd_data[key])
+                spikes = spikes + 1
+
+            else:
+
+                spikes = spikes + 1
+
+        return detection
+
+
+def plot_rawdata_singlechannel(channeldata, channelnumber, recursiveround, figpath):
+
+    fig = plt.figure(dpi=500)
+
+    plt.plot(channeldata)
+
+    plt.ylim(bottom=-60, top=10)
+    plt.ylabel("Voltage")
+    plt.xlim(left=0, right=6000000)
+    plt.xlim("Raw data points")
+
+    plt.savefig(figpath + str(channelnumber) + "_round_" + str(recursiveround) + "_.png", format='png')
+    plt.close(fig)
+
+    print("Electrode ", channelnumber, "round of detection number ", recursiveround)
