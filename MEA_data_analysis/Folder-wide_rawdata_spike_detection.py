@@ -32,11 +32,15 @@ def folderwide_spike_detection(MEAs_paths):
         folder = str(MEAs_paths[key]) + "\\"
         MEA = str(key)
 
-        print('Running the analysis for MEA', MEA, 'inside folder', folder, 'at', time.asctime(time.localtime(time.time())))
+        print('Started the analysis for MEA', MEA, 'inside folder', folder, 'at',
+              time.asctime(time.localtime(time.time())))
 
         raw_timeseries = object_constructor(folder, MEA)
 
-        raw_timeseries.recursive_spike_detection(MEA, folder)
+        raw_timeseries.parallel_recursive_spike_detection()
+
+        print('Finished analysis for MEA', MEA, 'inside folder', folder, 'at',
+              time.asctime(time.localtime(time.time())))
 
 
 def MEA_path_acquisition(full_path):
@@ -85,9 +89,10 @@ def object_constructor(folder, MEA):
 
 # ----------------------------------------------------------------------------------------------------------------- #
 
-# Methods testing #
+# Run analysis #
 
 # ----------------------------------------------------------------------------------------------------------------- #
+
 
 print("\n \n Welcome to the University of Reading - Brain Embodiment Laboratory (SBS - BEL) \n "
       "This module was designed evaluate the firing of recordings from a folder containing *.mat files. \n"

@@ -3,6 +3,7 @@ import gc
 import h5py
 import numpy as np
 import matplotlib.pyplot as plt
+import multiprocessing as mp
 from scipy import io, signal, sparse as sp
 import time
 
@@ -24,18 +25,12 @@ class RAW_NeuronalData:
         # Column ZERO has all the channel names, already in the correct order #
 
         self.mcd_data['ms'] = list()  # First entry of the dictionary will be the time in ms #
-
-        record_duration = len(recorded_timedata['timedata'][0])
-
-        for duration in range(0, record_duration-200):
-
-            self.mcd_data['ms'].append(recorded_timedata['timedata'][0][duration])
+        self.mcd_data['ms'].extend(recorded_timedata['timedata'][0])
 
         # Then we add the channel IDs and the voltage data #
 
         for channel in range(0, 60):
 
-            size = len(recorded_uvdata[channel])-2
             key = recorded_channelids['channelID_matrix'][channel][0][0]  # First column has the channel IDs #
 
             self.mcd_data[key] = list()
@@ -81,10 +76,7 @@ class RAW_NeuronalData:
         spiketimes = dict()  # Dictionary that will contain the detected spiketimes
         spikeshapes = dict()  # Dictionary that will contain the detected spikeshapes
         spikeapexes = dict()  # Dictionary that will contain the detected spikeapexes
-        valid_channels = list()  # List of valid channels, with 4 or more spikes and visually inspected #
         threshold_array = dict()  # Dictionary that will contain the threshold computations
-
-        detection_number = dict()
 
         # ------------------------------------------------------------------------------------------------------------ #
 
@@ -171,6 +163,50 @@ class RAW_NeuronalData:
                 spikes = spikes + 1
 
         return detection
+
+    def parallel_recursive_spike_detection(self):
+
+        original_raw_timeseries = deepcopy(self)
+        print('Now copying the time series.')
+
+        spiketimes = dict()  # Dictionary that will contain the detected spiketimes
+        spikeshapes = dict()  # Dictionary that will contain the detected spikeshapes
+        spikeapexes = dict()  # Dictionary that will contain the detected spikeapexes
+        threshold_array = dict()  # Dictionary that will contain the threshold computations
+
+        # ------------------------------------------------------------------------------------------------------------ #
+
+        for key in self.mcd_data:  # Creates the relevant lists #
+
+            if key != 'ms':
+                threshold_array[key] = list()
+                spiketimes[key] = list()
+                spikeshapes[key] = dict()
+                spikeapexes[key] = list()
+
+        pool = mp.Pool(mp.cpu_count())
+
+        for key in self.mcd_data:  # Runs the actual detection per electrode #
+
+            pool.apply(self.electrode_spike_detection,
+                       args=(self, key, spiketimes, spikeshapes, spikeapexes, threshold_array))
+
+        del self
+        gc.collect()
+
+    def electrode_spike_detection(self, key, spiketimes, spikeshapes, spikeapexes, threshold_array):
+
+        if key != 'ms':
+
+            detection = 1
+            round = 1
+
+            while detection == 1:
+
+                detection = self.dynamic_thresholding(key, spiketimes, spikeshapes, spikeapexes, threshold_array)
+                round = round + 1
+
+        print("Finished for electrode ", key)
 
 
 def plot_rawdata_singlechannel(channeldata, channelnumber, recursiveround, figpath):
