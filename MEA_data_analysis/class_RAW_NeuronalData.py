@@ -37,11 +37,9 @@ class RAW_NeuronalData:
 
             size = len(recorded_uvdata[channel])-2
             key = recorded_channelids['channelID_matrix'][channel][0][0]  # First column has the channel IDs #
+
             self.mcd_data[key] = list()
-
-            for voltage in range(0, size):
-
-                self.mcd_data[key].append(recorded_uvdata[channel][voltage])  # Filling the arrays with the voltages #
+            self.mcd_data[key].extend(recorded_uvdata[channel])  # Filling the arrays with the voltages #
 
     def exclusion(self):
 
@@ -109,7 +107,7 @@ class RAW_NeuronalData:
                 while detection == 1:
 
                     figpath = "C:\\Users\\rodri\\Dropbox\\PhD\\Thesis\\Analysis Pipeline\\BEL_Datafiles_and_Scripts" \
-                            "\\BEL_Python_Files\\Debug graphs\\Dynamic threshold localtest\\MEA_10672_DIV21_Channel_"
+                            "\\BEL_Python_Files\\Debug graphs\\MEA_10672_DIV21_Channel_"
 
                     plot_rawdata_singlechannel(self.mcd_data[key], key, round, figpath)
                     detection = self.dynamic_thresholding(key, spiketimes, spikeshapes, spikeapexes, threshold_array)
@@ -117,7 +115,6 @@ class RAW_NeuronalData:
 
         del self
         gc.collect()
-        print(time.asctime(time.localtime(time.time())))  # Prints the current time for profiling
 
     def dynamic_thresholding(self, key, spiketimes, spikeshapes, spikeapexes, threshold_array):
 
@@ -182,10 +179,10 @@ def plot_rawdata_singlechannel(channeldata, channelnumber, recursiveround, figpa
 
     plt.plot(channeldata)
 
-    plt.ylim(bottom=-60, top=10)
-    plt.ylabel("Voltage")
+    plt.ylim(bottom=-60, top=20)
+    plt.ylabel("Voltage (µV)")
     plt.xlim(left=0, right=6000000)
-    plt.xlim("Raw data points")
+    plt.xlabel("Raw data points")
 
     plt.savefig(figpath + str(channelnumber) + "_round_" + str(recursiveround) + "_.png", format='png')
     plt.close(fig)
