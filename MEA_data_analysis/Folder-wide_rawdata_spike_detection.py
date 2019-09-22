@@ -29,7 +29,8 @@ def folderwide_spike_detection(MEAs_paths):
 
     for key in MEAs_paths.keys():
 
-        folder = str(MEAs_paths[key]) + "\\"
+        #folder = str(MEAs_paths[key]) + "\\" # Windows
+        folder = str(MEAs_paths[key]) + "/"  # Unix
         MEA = str(key)
 
         print('Started the analysis for MEA', MEA, 'inside folder', folder, 'at',
@@ -37,7 +38,7 @@ def folderwide_spike_detection(MEAs_paths):
 
         raw_timeseries = object_constructor(folder, MEA)
 
-        raw_timeseries.parallel_recursive_spike_detection()
+        raw_timeseries.recursive_spike_detection()
 
         print('Finished analysis for MEA', MEA, 'inside folder', folder, 'at',
               time.asctime(time.localtime(time.time())))

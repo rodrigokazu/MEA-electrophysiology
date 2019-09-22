@@ -91,19 +91,7 @@ class RAW_NeuronalData:
 
         for key in self.mcd_data:  # Runs the actual detection per electrode #
 
-            if key != 'ms':
-
-                detection = 1
-                round = 1
-
-                while detection == 1:
-
-                    figpath = "C:\\Users\\rodri\\Dropbox\\PhD\\Thesis\\Analysis Pipeline\\BEL_Datafiles_and_Scripts" \
-                            "\\BEL_Python_Files\\Debug graphs\\MEA_10672_DIV21_Channel_"
-
-                    plot_rawdata_singlechannel(self.mcd_data[key], key, round, figpath)
-                    detection = self.dynamic_thresholding(key, spiketimes, spikeshapes, spikeapexes, threshold_array)
-                    round = round + 1
+            self.electrode_spike_detection(key, spiketimes, spikeshapes, spikeapexes, threshold_array)
 
         del self
         gc.collect()
@@ -203,6 +191,7 @@ class RAW_NeuronalData:
 
             while detection == 1:
 
+                print("Round number ", round, " for electrode ", key)
                 detection = self.dynamic_thresholding(key, spiketimes, spikeshapes, spikeapexes, threshold_array)
                 round = round + 1
 
@@ -216,7 +205,7 @@ def plot_rawdata_singlechannel(channeldata, channelnumber, recursiveround, figpa
     plt.plot(channeldata)
 
     plt.ylim(bottom=-60, top=20)
-    plt.ylabel("Voltage (µV)")
+    plt.ylabel("Voltage (uV)")
     plt.xlim(left=0, right=6000000)
     plt.xlabel("Raw data points")
 
