@@ -9,48 +9,65 @@ plt.rcParams.update({'font.size': 8})
 
 class SPKS_NeuronalData:
 
-    def __init__(self, shapedata, time_array, occurrence_ms, channelids):
+    def __init__(self, input, occurrence_ms, shapedata, *args):
+
+        # MATLAB input needs the extra arguments time_array and channelids #
 
         self.spiketimes = {}
         self.spikeshapes = {}
 
         # Imports data #
 
-        recorded_timedata = scipy.io.loadmat(time_array)
-        recorded_channelids = scipy.io.loadmat(channelids)
-        input_occurrencedata = scipy.io.loadmat(occurrence_ms)
-        input_shapedata = scipy.io.loadmat(shapedata)
+        if input == "MATLAB":
 
-        # The first index after it stands for the matrix line, the second one for the column #
-        # Column ZERO has all the channel names, already in the correct order #
+            recorded_timedata = scipy.io.loadmat(time_array)
+            recorded_channelids = scipy.io.loadmat(channelids)
+            input_occurrencedata = scipy.io.loadmat(occurrence_ms)
+            input_shapedata = scipy.io.loadmat(shapedata)
 
-        record_duration = len(recorded_timedata['timedata'][0])
+            # The first index after it stands for the matrix line, the second one for the column #
+            # Column ZERO has all the channel names, already in the correct order #
 
-        self.spiketimes['duration'] = record_duration  # First entry of the dictionary will be the time in ms #
+            record_duration = len(recorded_timedata['timedata'][0])
 
-        for channel in range(0, 60):
+            self.spiketimes['duration'] = record_duration  # First entry of the dictionary will be the time in ms #
 
-            key = recorded_channelids['channelID_matrix'][channel][0][0]  # First column has the channel IDs #
+            for channel in range(0, 60):
 
-            spike_number = len(input_occurrencedata['spiketimes'][0:60][channel][0])
+                key = recorded_channelids['channelID_matrix'][channel][0][0]  # First column has the channel IDs #
 
-            if spike_number > 4:  # Channels with less than 4 spikes are excluded from further analysis #
+                spike_number = len(input_occurrencedata['spiketimes'][0:60][channel][0])
 
-                # Stores the Spike Shapes #
+                if spike_number > 4:  # Channels with less than or 4 spikes are excluded from further analysis #
 
-                self.spikeshapes[key] = list()
-                transpose = np.transpose(input_shapedata['spikedata_cell'][0:60][channel][0])
-                self.spikeshapes[key] = transpose
+                    # Stores the Spike Shapes #
 
-                # Fills the arrays with the times of spikes in ms #
+                    self.spikeshapes[key] = list()
+                    transpose = np.transpose(input_shapedata['spikedata_cell'][0:60][channel][0])
+                    self.spikeshapes[key] = transpose
 
-                self.spiketimes[key] = list()
+                    # Fills the arrays with the times of spikes in ms #
 
-                for spike_event in range(0, spike_number):
+                    self.spiketimes[key] = list()
 
-                    self.spiketimes[key].append(input_occurrencedata['spiketimes'][0:60][channel][0][spike_event][0])
+                    for spike_event in range(0, spike_number):
 
-        self.exclusion()  # Exclude channels after visual inspection #
+                        self.spiketimes[key].append(input_occurrencedata['spiketimes'][0:60][channel][0][spike_event][0])
+
+        elif input == "RAWdata":
+
+            self.spiketimes = occurrence_ms
+
+            for channel in self.spiketimes:
+
+                if len(self.spiketimes[channel]) > 4:
+
+                        self.spikeshapes[channel] = shapedata[channel]
+
+                else:
+
+                    del self.spiketimes[channel]
+
 
     def exclusion(self):
 
@@ -398,9 +415,9 @@ class SPKS_NeuronalData:
 
     # Data visualisation for IBI per MEA #
 
-    def IBI_visualisation(IBI):
+    def IBI_visualisation(self, MEA):
 
-        IBI = spike_data.burstdranias_100ms(MEA)
+        IBI = self.burstdranias_100ms(MEA)
 
         for electrode in IBI:
 
@@ -416,7 +433,7 @@ class SPKS_NeuronalData:
 
     # Data visualisation for burst duration per MEA #
 
-    def Burstduration_visualisation(Burstduration):
+    def Burstduration_visualisation(self, MEA):
 
         Burstduration = spike_data.burstdranias_100ms(MEA)
 

@@ -1,10 +1,9 @@
 from copy import deepcopy
+from class_SPKS_NeuronalData import *
 import gc
 import h5py
-import numpy as np
-import matplotlib.pyplot as plt
 import multiprocessing as mp
-from scipy import io, signal, sparse as sp
+from scipy import signal, sparse as sp
 import time
 
 
@@ -92,6 +91,11 @@ class RAW_NeuronalData:
         for key in self.mcd_data:  # Runs the actual detection per electrode #
 
             self.electrode_spike_detection(key, spiketimes, spikeshapes, spikeapexes, threshold_array)
+
+        spike_data = SPKS_NeuronalData(input="RAWData", occurrence_ms=spiketimes, shapedata=spikeshapes)
+        print("Spike data created.")
+        dict_to_file(spike_data.spikeshapes, filename="10672_spikeshapes")
+        print("Spike shapes printed.")
 
         del self
         gc.collect()
@@ -213,3 +217,12 @@ def plot_rawdata_singlechannel(channeldata, channelnumber, recursiveround, figpa
     plt.close(fig)
 
     print("Electrode ", channelnumber, "round of detection number ", recursiveround)
+
+
+def dict_to_file(dict, filename):  # Please change the filepath accordingly
+
+    filepath = "/home/pc1rss/"
+    filename = filename + ".txt"
+    file = open(filepath+filename, "w+")
+    file.write(str(dict))
+    file.close()
