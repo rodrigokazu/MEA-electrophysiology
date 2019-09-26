@@ -68,7 +68,6 @@ class SPKS_NeuronalData:
 
                     del self.spiketimes[channel]
 
-
     def exclusion(self):
 
         print("Please enter one channel to be excluded (enter zero to skip to the next MEA recording) from: \n ", self.spiketimes.keys())

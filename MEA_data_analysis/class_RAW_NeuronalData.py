@@ -3,7 +3,7 @@ from class_SPKS_NeuronalData import *
 import gc
 import h5py
 import multiprocessing as mp
-from scipy import signal, sparse as sp
+from scipy import signal, io
 import time
 
 
@@ -92,7 +92,8 @@ class RAW_NeuronalData:
 
             self.electrode_spike_detection(key, spiketimes, spikeshapes, spikeapexes, threshold_array)
 
-        spike_data = SPKS_NeuronalData(input="RAWData", occurrence_ms=spiketimes, shapedata=spikeshapes)
+        print("Out of the detection loop.")
+        spike_data = SPKS_NeuronalData(input="RAWdata", occurrence_ms=spiketimes, shapedata=spikeshapes)
         print("Spike data created.")
         dict_to_file(spike_data.spikeshapes, filename="10672_spikeshapes")
         print("Spike shapes printed.")
