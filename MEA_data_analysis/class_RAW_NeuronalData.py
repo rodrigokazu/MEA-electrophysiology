@@ -11,6 +11,20 @@ class RAW_NeuronalData:
 
     def __init__(self, uv_data, time_array, channelids):
 
+        """ Reads a *.mat file with empirically recorded neuronal data from multielectrode arrays exported with the
+         MCD_files_export_uV_and_mS_plus_METADATA.m script and generates a RAW_NeuronalData object
+
+                Arguments:
+
+                    uvdata (str): path to the *.hdf5 file containing voltage times
+                    time_array (str): path to the *.mat file containing the recorded timestamps in ms
+                    channelids (str): path to the *.mat file containing the recorded electrode numbers
+
+                Returns:
+
+                   RAW_NeuronalData object
+                """
+
         self.mcd_data = {}
 
         file = h5py.File(uv_data, 'r')  # Generating a h5py File Object #
@@ -37,6 +51,17 @@ class RAW_NeuronalData:
 
     def exclusion(self):
 
+        """ Remove electrodes from the RAW_NeuronalData object
+
+            Arguments:
+
+                RAW_NeuronalData object
+
+            Returns:
+
+               Updated RAW_NeuronalData object
+            """
+
         print("Please enter one channel to be excluded")
         channel = int(input())
 
@@ -47,15 +72,19 @@ class RAW_NeuronalData:
 
         return self
 
-    # ------------------------------------------------------------------------------------------------------------- #
-
-    # My sampling rate is 25000000 milisamples per second, 25000 Hz #
-
-    # Now create a Butterworth filter with a cutoff of 0.02 times the Nyquist rate, or 20 Hz #
-
-    # ------------------------------------------------------------------------------------------------------------- #
-
     def highpass(self):
+
+        """ Creates a Butterworth filter with a cutoff of 0.02 times the Nyquist rate, or 20 Hz and runs it through a
+        RAW_NeuronalData object with sampling rate of 25000000 milisamples per second, 25000 Hz.
+
+                Arguments:
+
+                    RAW_NeuronalData object
+
+                Returns:
+
+                   Filtered RAW_NeuronalData object
+                """
 
         b, a = signal.butter(2, 0.02)
 
@@ -69,8 +98,17 @@ class RAW_NeuronalData:
 
     def recursive_spike_detection(self):
 
-        original_raw_timeseries = deepcopy(self)
-        print('Now copying the time series.')
+        """ Reads a RAW_NeuronalData object and extract spikes for each channel utilising the recursive spike detection
+        algorithm devised at the University of Reading, converting it to a SPKS_NeuronalData object
+
+            Arguments:
+
+                RAW_NeuronalData object
+
+            Returns:
+
+               SPKS_NeuronalData object
+            """
 
         spiketimes = dict()  # Dictionary that will contain the detected spiketimes
         spikeshapes = dict()  # Dictionary that will contain the detected spikeshapes
@@ -101,15 +139,36 @@ class RAW_NeuronalData:
         del self
         gc.collect()
 
+        return spike_data
+
     def dynamic_thresholding(self, key, spiketimes, spikeshapes, spikeapexes, threshold_array):
 
+        """ Reads a RAW_NeuronalData object channel(electrode) and extract spikes for it utilising the recursive spike
+        detection algorithm devised at the University of Reading, altering the dictionaries and returning if a next round
+        is needed
+
+            Arguments:
+
+                key(str): Electrode number
+                spiketimes(dict): Dictionary to save the spiketimes
+                spikeshapes(dict): Dictionary to save the spikeshapes
+                spikeapexes(dict): Dictionary to save the spikeapexes (peaks)
+                threshold_array(dict): Dictionary of the thresholds utilised
+
+            Returns:
+
+               Detection signpost
+            """
+
         detection = 0
+        detection_time = 0
 
         size = len(self.mcd_data[key])
         threshold = -5.5 * np.std(self.mcd_data[key])  # Sets the threshold in 5.5 STD #
         threshold_array[key].append(threshold)
 
         spikes = 0
+
         occurence = 0
 
         while spikes < size:  # Flags detected spikes #
@@ -126,7 +185,7 @@ class RAW_NeuronalData:
 
                 spike_apex = spikes + cutout  # Lowest point of the spike (i.e. spike time) #
 
-                spiketimes[key].append(self.mcd_data['ms'][spike_apex])
+
                 spikeapexes[key].append(self.mcd_data[key][spike_apex])
                 spikeshapes[key][occurence] = np.zeros(75)
 
@@ -139,6 +198,7 @@ class RAW_NeuronalData:
                     spikeshapes[key][occurence][24 + forwards] = self.mcd_data[key][spike_apex + forwards]
 
                 spikes = spike_apex - 25  # Sets the investigated point to the beginning of the spike before removal
+                occurence = occurence + 1
 
                 for del_backwards in range(0, 25):  # Clears for dynamic thresholding
 
@@ -148,8 +208,15 @@ class RAW_NeuronalData:
 
                     self.mcd_data[key] = np.delete(self.mcd_data[key], spike_apex + del_forwards)
 
-                size = len(self.mcd_data[key])
-                spikes = spikes + 1
+                if occurence != 1:  # Accounting for the excluded spikes
+
+                    conversion_factor = occurence - 1
+                    conversion_factor = 75*conversion_factor
+                    detection_time = spikes + conversion_factor
+                    spiketimes[key].append(self.mcd_data['ms'][detection_time])
+
+                size = len(self.mcd_data[key])  # Updates the size
+                spikes = spikes + 1  # Moves the analysed point
 
             else:
 
@@ -159,7 +226,19 @@ class RAW_NeuronalData:
 
     def parallel_recursive_spike_detection(self):
 
-        original_raw_timeseries = deepcopy(self)
+        """ Attempt to paralelise the detection. Reads a RAW_NeuronalData object and extract spikes for each channel
+        utilising the recursive spike detection algorithm devised at the University of Reading, converting it to a
+        SPKS_NeuronalData object
+
+            Arguments:
+
+                RAW_NeuronalData object
+
+            Returns:
+
+               SPKS_NeuronalData object
+            """
+
         print('Now copying the time series.')
 
         spiketimes = dict()  # Dictionary that will contain the detected spiketimes
@@ -189,6 +268,20 @@ class RAW_NeuronalData:
 
     def electrode_spike_detection(self, key, spiketimes, spikeshapes, spikeapexes, threshold_array):
 
+        """ Reads a RAW_NeuronalData object channel(electrode) and extract spikes for it utilising the recursive spike
+       detection algorithm devised at the University of Reading dynamic_thresholding(self, key, spiketimes, spikeshapes,
+       spikeapexes, threshold_array), altering the dictionaries.
+
+           Arguments:
+
+               key(str): Electrode number
+               spiketimes(dict): Dictionary to save the spiketimes
+               spikeshapes(dict): Dictionary to save the spikeshapes
+               spikeapexes(dict): Dictionary to save the spikeapexes (peaks)
+               threshold_array(dict): Dictionary of the thresholds utilised
+
+           """
+
         if key != 'ms':
 
             detection = 1
@@ -205,6 +298,21 @@ class RAW_NeuronalData:
 
 def plot_rawdata_singlechannel(channeldata, channelnumber, recursiveround, figpath):
 
+    """ Reads a RAW_NeuronalData object channel(electrode) and plots the raw voltage data
+
+          Arguments:
+
+              channeldata(list): Raw voltage data for a given electrode.
+              channelnumber(str): Electrode name or number
+              recursiveround(str): Round of analysis (if using the recursive spike detection)
+              figpath(str): Where to plot the data (full path)
+
+        Returns:
+
+            Saved plot.
+
+          """
+
     fig = plt.figure(dpi=500)
 
     plt.plot(channeldata)
@@ -217,13 +325,24 @@ def plot_rawdata_singlechannel(channeldata, channelnumber, recursiveround, figpa
     plt.savefig(figpath + str(channelnumber) + "_round_" + str(recursiveround) + "_.png", format='png')
     plt.close(fig)
 
-    print("Electrode ", channelnumber, "round of detection number ", recursiveround)
 
+def dict_to_file(dict, filename, output_path):
 
-def dict_to_file(dict, filename):  # Please change the filepath accordingly
+    """ Writes any dictionary to a text file
 
-    filepath = "/home/pc1rss/"
-    filename = filename + ".txt"
-    file = open(filepath+filename, "w+")
+               Arguments:
+
+                dict(dict): Dictionary to be written
+                filename(str): name of the output file
+                output_path(str): Full path of the output file
+
+              Returns:
+
+                 Output file
+
+              """
+
+    fullname = output_path + filename + ".txt"
+    file = open(fullname, "w+")
     file.write(str(dict))
     file.close()
