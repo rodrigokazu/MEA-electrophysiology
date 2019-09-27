@@ -27,10 +27,23 @@ from pathlib import Path
 
 def folderwide_spike_detection(MEAs_paths):
 
+    """ Reads a dictionary with paths to electrophysiological recordings from multielectrode arrays exported with the
+    MCD_files_export_uV_and_mS_plus_METADATA.m script as *.mat files and runs further analysis
+
+              Arguments:
+
+                  MEAs_paths(dict): Dictionary with paths to the recordings
+
+            Returns:
+
+               Analysis output.
+
+              """
+
     for key in MEAs_paths.keys():
 
-        #folder = str(MEAs_paths[key]) + "\\" # Windows
-        folder = str(MEAs_paths[key]) + "/"  # Unix
+        folder = str(MEAs_paths[key]) + "\\"  # Windows
+        #folder = str(MEAs_paths[key]) + "/"  # Unix
         MEA = str(key)
 
         print('Started the analysis for MEA', MEA, 'inside folder', folder, 'at',
@@ -45,6 +58,20 @@ def folderwide_spike_detection(MEAs_paths):
 
 
 def MEA_path_acquisition(full_path):
+
+    """ Acquires the paths to electrophysiological recordings from multielectrode arrays exported with the
+    MCD_files_export_uV_and_mS_plus_METADATA.m script as *.mat files and runs further analysis
+
+                  Arguments:
+
+                      full_path(str): Paths to the directory where the recordings are stored in folders with the MEA
+                      number.
+
+                Returns:
+
+                   MEA_paths dictionary with MEA numbers as keys and paths as values.
+
+                  """
 
     path = Path(full_path)
     MEAs_paths = {}
@@ -80,11 +107,13 @@ def object_constructor(folder, MEA):
 
     print('RAW_NeuronalData object created at ', time.asctime(time.localtime(time.time())))  # For profiling
 
-    # 20 Hz High Pass filtering #
+    # Filtering #
 
-    filtered_data = raw_data.highpass()
+    filtered_data = raw_data.bandstop()
+    filtered_data = filtered_data.highpass()
 
-    print('Data filtered (20Hz High Pass) at', time.asctime(time.localtime(time.time())))
+
+    print('Data filtered (20Hz High Pass and 50Hz bandstop) at', time.asctime(time.localtime(time.time())))
 
     return filtered_data
 

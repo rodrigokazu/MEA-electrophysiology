@@ -49,97 +49,24 @@ class RAW_NeuronalData:
             self.mcd_data[key] = list()
             self.mcd_data[key].extend(recorded_uvdata[channel])  # Filling the arrays with the voltages #
 
-    def exclusion(self):
+    def bandstop(self):
 
-        """ Remove electrodes from the RAW_NeuronalData object
+        """ Pass the all electrodes of a MEA recording stored as a RAW_NeuronalData object trough a bandstop filter of
+        order 3 with cutoff frequencies of 60Hz and 40Hz.
 
-            Arguments:
-
-                RAW_NeuronalData object
-
-            Returns:
-
-               Updated RAW_NeuronalData object
-            """
-
-        print("Please enter one channel to be excluded")
-        channel = int(input())
-
-        while channel != 0:
-
-            del self.mcd_data[channel]
-            channel = input()
-
-        return self
-
-    def highpass(self):
-
-        """ Creates a Butterworth filter with a cutoff of 0.02 times the Nyquist rate, or 20 Hz and runs it through a
-        RAW_NeuronalData object with sampling rate of 25000000 milisamples per second, 25000 Hz.
-
-                Arguments:
-
-                    RAW_NeuronalData object
 
                 Returns:
 
                    Filtered RAW_NeuronalData object
                 """
 
-        b, a = signal.butter(2, 0.02)
-
         for key in self.mcd_data:
 
             if key != 'ms':
 
-                self.mcd_data[key] = signal.filtfilt(b, a, self.mcd_data[key])
-
+                self.mcd_data[key] = butter_bandstop_filter(data=self.mcd_data[key], lowcut=40, highcut=60, fs=25000,
+                                                            order=3)
         return self
-
-    def recursive_spike_detection(self):
-
-        """ Reads a RAW_NeuronalData object and extract spikes for each channel utilising the recursive spike detection
-        algorithm devised at the University of Reading, converting it to a SPKS_NeuronalData object
-
-            Arguments:
-
-                RAW_NeuronalData object
-
-            Returns:
-
-               SPKS_NeuronalData object
-            """
-
-        spiketimes = dict()  # Dictionary that will contain the detected spiketimes
-        spikeshapes = dict()  # Dictionary that will contain the detected spikeshapes
-        spikeapexes = dict()  # Dictionary that will contain the detected spikeapexes
-        threshold_array = dict()  # Dictionary that will contain the threshold computations
-
-        # ------------------------------------------------------------------------------------------------------------ #
-
-        for key in self.mcd_data:  # Creates the relevant lists #
-
-            if key != 'ms':
-
-                threshold_array[key] = list()
-                spiketimes[key] = list()
-                spikeshapes[key] = dict()
-                spikeapexes[key] = list()
-
-        for key in self.mcd_data:  # Runs the actual detection per electrode #
-
-            self.electrode_spike_detection(key, spiketimes, spikeshapes, spikeapexes, threshold_array)
-
-        print("Out of the detection loop.")
-        spike_data = SPKS_NeuronalData(input="RAWdata", occurrence_ms=spiketimes, shapedata=spikeshapes)
-        print("Spike data created.")
-        dict_to_file(spike_data.spikeshapes, filename="10672_spikeshapes")
-        print("Spike shapes printed.")
-
-        del self
-        gc.collect()
-
-        return spike_data
 
     def dynamic_thresholding(self, key, spiketimes, spikeshapes, spikeapexes, threshold_array):
 
@@ -179,12 +106,11 @@ class RAW_NeuronalData:
 
                 detection = 1
 
-                while self.mcd_data[key][spikes+cutout] >= self.mcd_data[key][spikes+cutout+1] and cutout < 75:
+                while self.mcd_data[key][spikes + cutout] >= self.mcd_data[key][spikes + cutout + 1] and cutout < 75:
 
                     cutout = cutout + 1
 
                 spike_apex = spikes + cutout  # Lowest point of the spike (i.e. spike time) #
-
 
                 spikeapexes[key].append(self.mcd_data[key][spike_apex])
                 spikeshapes[key][occurence] = np.zeros(75)
@@ -204,14 +130,14 @@ class RAW_NeuronalData:
 
                     self.mcd_data[key] = np.delete(self.mcd_data[key], spike_apex - del_backwards)
 
-                for del_forwards in range(0, 50):   # Clears for dynamic thresholding
+                for del_forwards in range(0, 50):  # Clears for dynamic thresholding
 
                     self.mcd_data[key] = np.delete(self.mcd_data[key], spike_apex + del_forwards)
 
                 if occurence != 1:  # Accounting for the excluded spikes
 
                     conversion_factor = occurence - 1
-                    conversion_factor = 75*conversion_factor
+                    conversion_factor = 75 * conversion_factor
                     detection_time = spikes + conversion_factor
                     spiketimes[key].append(self.mcd_data['ms'][detection_time])
 
@@ -223,6 +149,86 @@ class RAW_NeuronalData:
                 spikes = spikes + 1
 
         return detection
+
+    def electrode_spike_detection(self, key, spiketimes, spikeshapes, spikeapexes, threshold_array):
+
+        """ Reads a RAW_NeuronalData object channel(electrode) and extract spikes for it utilising the recursive spike
+       detection algorithm devised at the University of Reading dynamic_thresholding(self, key, spiketimes, spikeshapes,
+       spikeapexes, threshold_array), altering the dictionaries.
+
+           Arguments:
+
+               key(str): Electrode number
+               spiketimes(dict): Dictionary to save the spiketimes
+               spikeshapes(dict): Dictionary to save the spikeshapes
+               spikeapexes(dict): Dictionary to save the spikeapexes (peaks)
+               threshold_array(dict): Dictionary of the thresholds utilised
+
+           """
+
+        if key != 'ms':
+
+            detection = 1
+            round = 1
+
+            while detection == 1:
+
+                print("Round number ", round, " for electrode ", key)
+
+                plot_rawdata_singlechannel(channeldata=self.mcd_data[key], channelnumber=key, recursiveround=round,
+                                           figpath="C:/Users/pc1rss/Desktop/")
+
+                detection = self.dynamic_thresholding(key, spiketimes, spikeshapes, spikeapexes, threshold_array)
+                round = round + 1
+
+        print("Finished for electrode ", key)
+
+    def exclusion(self):
+
+        """ Remove electrodes from the RAW_NeuronalData object
+
+            Arguments:
+
+                RAW_NeuronalData object
+
+            Returns:
+
+               Updated RAW_NeuronalData object
+            """
+
+        print("Please enter one channel to be excluded")
+        channel = int(input())
+
+        while channel != 0:
+
+            del self.mcd_data[channel]
+            channel = input()
+
+        return self
+
+    def highpass(self):
+
+        """ Creates a Butterworth filter with a cutoff of 0.02 times the Nyquist rate, or 20 Hz and runs it through a
+        RAW_NeuronalData object with sampling rate of 25000000 milisamples per second, 25000 Hz.
+
+                Arguments:
+
+                    RAW_NeuronalData object
+
+                Returns:
+
+                   Filtered RAW_NeuronalData object
+                """
+
+        b, a = signal.butter(2, 0.02, btype='highpass')
+
+        for key in self.mcd_data:
+
+            if key != 'ms':
+
+                self.mcd_data[key] = signal.filtfilt(b, a, self.mcd_data[key])
+
+        return self
 
     def parallel_recursive_spike_detection(self):
 
@@ -266,64 +272,103 @@ class RAW_NeuronalData:
         del self
         gc.collect()
 
-    def electrode_spike_detection(self, key, spiketimes, spikeshapes, spikeapexes, threshold_array):
+    def recursive_spike_detection(self):
 
-        """ Reads a RAW_NeuronalData object channel(electrode) and extract spikes for it utilising the recursive spike
-       detection algorithm devised at the University of Reading dynamic_thresholding(self, key, spiketimes, spikeshapes,
-       spikeapexes, threshold_array), altering the dictionaries.
+        """ Reads a RAW_NeuronalData object and extract spikes for each channel utilising the recursive spike detection
+        algorithm devised at the University of Reading, converting it to a SPKS_NeuronalData object
 
-           Arguments:
+            Arguments:
 
-               key(str): Electrode number
-               spiketimes(dict): Dictionary to save the spiketimes
-               spikeshapes(dict): Dictionary to save the spikeshapes
-               spikeapexes(dict): Dictionary to save the spikeapexes (peaks)
-               threshold_array(dict): Dictionary of the thresholds utilised
+                RAW_NeuronalData object
 
-           """
+            Returns:
 
-        if key != 'ms':
+               SPKS_NeuronalData object
+            """
 
-            detection = 1
-            round = 1
+        spiketimes = dict()  # Dictionary that will contain the detected spiketimes
+        spikeshapes = dict()  # Dictionary that will contain the detected spikeshapes
+        spikeapexes = dict()  # Dictionary that will contain the detected spikeapexes
+        threshold_array = dict()  # Dictionary that will contain the threshold computations
 
-            while detection == 1:
+        # ------------------------------------------------------------------------------------------------------------ #
 
-                print("Round number ", round, " for electrode ", key)
-                detection = self.dynamic_thresholding(key, spiketimes, spikeshapes, spikeapexes, threshold_array)
-                round = round + 1
+        for key in self.mcd_data:  # Creates the relevant lists #
 
-        print("Finished for electrode ", key)
+            if key != 'ms':
+
+                threshold_array[key] = list()
+                spiketimes[key] = list()
+                spikeshapes[key] = dict()
+                spikeapexes[key] = list()
+
+        for key in self.mcd_data:  # Runs the actual detection per electrode #
+
+            self.electrode_spike_detection(key, spiketimes, spikeshapes, spikeapexes, threshold_array)
+
+        print("Out of the detection loop.")
+        spike_data = SPKS_NeuronalData(input="RAWdata", occurrence_ms=spiketimes, shapedata=spikeshapes)
+        print("Spike data created.")
+        dict_to_file(spike_data.spikeshapes, filename="10672_spikeshapes",
+                     output_path="C:\\Users\\pc1rss\\Dropbox\PhD\\")
+        print("Spike shapes printed.")
+
+        del self
+        gc.collect()
+
+        return spike_data
 
 
-def plot_rawdata_singlechannel(channeldata, channelnumber, recursiveround, figpath):
+def butter_bandstop(lowcut, highcut, fs, order):
 
-    """ Reads a RAW_NeuronalData object channel(electrode) and plots the raw voltage data
+    """Generate the coefficients for a bandpass filter, give butter() the filter order, the cutoff frequencies
+    Wn=[low, high] (expressed as the fraction of the Nyquist frequency, which is half the sampling frequency) and the
+    band type btype="band".
 
-          Arguments:
+                Arguments:
 
-              channeldata(list): Raw voltage data for a given electrode.
-              channelnumber(str): Electrode name or number
-              recursiveround(str): Round of analysis (if using the recursive spike detection)
-              figpath(str): Where to plot the data (full path)
+                    lowcut(int): Lower cut frequency
+                    highcut(int): Higher cut frequency
+                    fs(int): Frequency of sampling
+                    order(int): Filter order
+
+                Returns:
+
+                   Filter coefficients b and a
+
+                """
+
+    nyq = 0.5 * fs
+    low = lowcut / nyq
+    high = highcut / nyq
+
+    b, a = signal.butter(order, [low, high], btype='bandstop')
+
+    return b, a
+
+
+def butter_bandstop_filter(data, lowcut, highcut, fs, order):
+
+    """ Pass a electrode voltage train through a bandpass filter
+
+
+        Arguments:
+
+            data(list): Data to be filtered
+            lowcut(int): Lower cut frequency
+            highcut(int): Higher cut frequency
+            fs(int): Frequency of sampling
+            order(int): Filter order
 
         Returns:
 
-            Saved plot.
+           Filtered data
+        """
 
-          """
+    b, a = butter_bandstop(lowcut, highcut, fs, order=order)
+    y = signal.lfilter(b, a, data)
 
-    fig = plt.figure(dpi=500)
-
-    plt.plot(channeldata)
-
-    plt.ylim(bottom=-60, top=20)
-    plt.ylabel("Voltage (uV)")
-    plt.xlim(left=0, right=6000000)
-    plt.xlabel("Raw data points")
-
-    plt.savefig(figpath + str(channelnumber) + "_round_" + str(recursiveround) + "_.png", format='png')
-    plt.close(fig)
+    return y
 
 
 def dict_to_file(dict, filename, output_path):
@@ -346,3 +391,35 @@ def dict_to_file(dict, filename, output_path):
     file = open(fullname, "w+")
     file.write(str(dict))
     file.close()
+
+
+def plot_rawdata_singlechannel(channeldata, channelnumber, recursiveround, figpath):
+
+    """ Reads a RAW_NeuronalData object channel(electrode) and plots the raw voltage data
+
+          Arguments:
+
+              channeldata(list): Raw voltage data for a given electrode.
+              channelnumber(str): Electrode name or number
+              recursiveround(str): Round of analysis (if using the recursive spike detection)
+              figpath(str): Where to plot the data (full path)
+
+        Returns:
+
+            Saved plot.
+
+          """
+
+    fig = plt.figure(dpi=300)
+
+    plt.plot(channeldata)
+
+    plt.ylim(bottom=-80, top=30)
+    plt.ylabel("Voltage (uV)")
+    plt.xlim(left=0, right=6000000)
+    plt.xlabel("Raw data points")
+
+    plt.savefig(figpath + str(channelnumber) + "O3_r_" + str(recursiveround) + ".png", format='png')
+    plt.close(fig)
+
+
