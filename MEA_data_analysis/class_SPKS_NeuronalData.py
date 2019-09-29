@@ -11,6 +11,25 @@ class SPKS_NeuronalData:
 
     def __init__(self, input, occurrence_ms, shapedata, *args):
 
+        """ Reads multiple *.mat files with empirically recorded neuronal data from multielectrode arrays exported with
+        MCD_files_export_uV_and_mS_plus_METADATA.m script contained pre-detected spike trains and generates a
+        SPKS_NeuronalData object. Alternatively, imports the same information from the recursive spike detection of the
+        class RAW_NeuronalData
+
+                   Arguments:
+
+                       input (str): Either "RAWdata" or "MATLAB" as the source of the data
+                       occurrence_ms(str or dict): path to the *.mat file containing the spike times or dictionary with
+                       spiketimes if the source is "RAWdata".
+                       shapedata(str or dict): path to the *.mat file containing the spike shapes or dictionary with
+                       spikeshapes if the source is "RAWdata".
+                       time_array (str): path to the *.mat file containing the recorded timestamps in ms (MATLAB only)
+                       channelids (str): path to the *.mat file containing the recorded electrode numbers (MATLAB only)
+
+                   Returns:
+
+                      SPKS_NeuronalData object
+                   """
         # MATLAB input needs the extra arguments time_array and channelids #
 
         self.spiketimes = {}
@@ -58,7 +77,7 @@ class SPKS_NeuronalData:
 
             self.spiketimes = occurrence_ms
 
-            for channel in self.spiketimes:
+            for channel in self.spiketimes.keys():
 
                 if len(self.spiketimes[channel]) > 4:
 
@@ -69,6 +88,17 @@ class SPKS_NeuronalData:
                     del self.spiketimes[channel]
 
     def exclusion(self):
+
+        """ Remove electrodes from the RAW_NeuronalData object
+
+            Arguments:
+
+                SPKS_NeuronalData object
+
+            Returns:
+
+               Updated SPKS_NeuronalData object
+            """
 
         print("Please enter one channel to be excluded (enter zero to skip to the next MEA recording) from: \n ", self.spiketimes.keys())
 
@@ -86,7 +116,19 @@ class SPKS_NeuronalData:
 
 # ----------------------------------------------------------------------------------------------------------------- #
 
-    def electrode_FR(self, MEA):
+    def electrode_FR(self):
+
+        """ Computes the firing rates in Hz for all electrodes of a SPKS_NeuronalData object
+
+            Arguments:
+
+                SPKS_NeuronalData object
+
+            Returns:
+
+               Dictionary with Firing Rates
+
+            """
 
         firingrates = {}
 
@@ -106,20 +148,23 @@ class SPKS_NeuronalData:
             electrode_fr_s = spike_number / duration_s
             firingrates[key] = electrode_fr_s
 
-#        if len(self.spiketimes.keys()) > 1:
-
-#           plt.bar(*zip(*sorted(firingrates.items())), color='y')
-#            plt.xlabel('Electrode')
-#            plt.title('MEA ' + MEA + ' firing rates')
-#            plt.ylim(0, 0.1)
-
-#        print(firingrates)
-
         return firingrates
 
-    def MEA_overall_firingrate(self, MEA):
+    def MEA_overall_firingrate(self):
 
-        individual_fr = self.electrode_FR(MEA)
+        """Computes the firing rates in Hz for a whole SPKS_NeuronalData object (MEA recording)
+
+            Arguments:
+
+                SPKS_NeuronalData object
+
+            Returns:
+
+               Firing rate value in Hz
+
+            """
+
+        individual_fr = self.electrode_FR()
         spikecount = 0
 
         for key in individual_fr:
@@ -446,3 +491,38 @@ class SPKS_NeuronalData:
             plt.ylabel('Burst size')
             plt.ylim(0, 400)
             plt.xlabel("Electrode" + str(electrode))
+
+
+# ----------------------------------------------------------------------------------------------------------------- #
+
+# Functions for data visualisation #
+
+# ----------------------------------------------------------------------------------------------------------------- #
+
+def FR_perelectrode_barplot(figpath, firingrates, MEA):
+
+    """ Computes the firing rates in Hz for all electrodes of a SPKS_NeuronalData object
+
+        Arguments:
+
+            figpath(str): Path to save the plot.
+            firingrates(dict): Dictionary with electrode as keys and firing rates in Hz as values
+            MEA(str): Multielectrode array number
+
+        Returns:
+
+           Bar plot with Firing Rates
+
+        """
+
+    if len(firingrates.keys()) > 1:
+
+        fig = plt.figure(dpi=300)
+
+        plt.bar(*zip(*sorted(firingrates.items())), color='y')
+        plt.xlabel('Electrode')
+        plt.title('MEA ' + MEA + ' firing rates')
+        plt.ylim(0, 0.1)
+
+        plt.savefig(figpath + str(MEA) + "FR_Hz.png", format='png')
+        plt.close(fig)

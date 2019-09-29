@@ -11,7 +11,7 @@ class RAW_NeuronalData:
 
     def __init__(self, uv_data, time_array, channelids):
 
-        """ Reads a *.mat file with empirically recorded neuronal data from multielectrode arrays exported with the
+        """ Reads multiple *.mat files with empirically recorded neuronal data from multielectrode arrays exported with the
          MCD_files_export_uV_and_mS_plus_METADATA.m script and generates a RAW_NeuronalData object
 
                 Arguments:

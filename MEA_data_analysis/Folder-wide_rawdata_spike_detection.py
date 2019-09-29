@@ -62,16 +62,16 @@ def MEA_path_acquisition(full_path):
     """ Acquires the paths to electrophysiological recordings from multielectrode arrays exported with the
     MCD_files_export_uV_and_mS_plus_METADATA.m script as *.mat files and runs further analysis
 
-                  Arguments:
+          Arguments:
 
-                      full_path(str): Paths to the directory where the recordings are stored in folders with the MEA
-                      number.
+              full_path(str): Paths to the directory where the recordings are stored in folders with the MEA
+              number.
 
-                Returns:
+        Returns:
 
-                   MEA_paths dictionary with MEA numbers as keys and paths as values.
+           MEA_paths dictionary with MEA numbers as keys and paths as values.
 
-                  """
+          """
 
     path = Path(full_path)
     MEAs_paths = {}
@@ -95,9 +95,22 @@ def MEA_path_acquisition(full_path):
     return MEAs_paths
 
 
-def object_constructor(folder, MEA):
+def object_constructor(folder, MEA):  # Initialising the RAW_NeuronalData object and imports data files. #
 
-    # Initialising the RAW_NeuronalData object and imports data files. #
+    """Constructs a RAW_NeuronalData object from a electrophysiological recording from a multielectrode array exported
+    with the MCD_files_export_uV_and_mS_plus_METADATA.m script as *.mat file and runs the object through a bandstop (50Hz,
+    order 3) and  a high pass filter (20Hz)
+
+          Arguments:
+
+              folder(str): Path to the directory where the recording is stored
+              MEA: Number of the MEA recorded
+
+            Returns:
+
+               Filtered RAW_NeuronalData object
+
+              """
 
     uv_data = folder + MEA + '_RAW_voltage_data.mat'
     time_array = folder + MEA + '_time_array_ms.mat'
