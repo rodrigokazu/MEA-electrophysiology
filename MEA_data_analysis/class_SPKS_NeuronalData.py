@@ -150,6 +150,7 @@ class SPKS_NeuronalData:
 
         return firingrates
 
+
     def MEA_overall_firingrate(self):
 
         """Computes the firing rates in Hz for a whole SPKS_NeuronalData object (MEA recording)
@@ -183,15 +184,21 @@ class SPKS_NeuronalData:
 
         return overall_firingrate_s
 
-# ----------------------------------------------------------------------------------------------------------------- #
 
-# Computes burst counts and profiles according to Dranias, 2015 #
+    def burstdranias_100ms(self):
 
-# Bursts were defined as the presence of four spikes in a 100ms with an interval of 50ms to the next spike after #
+        """Computes burst counts and profiles of a SPKS_NeuronalData object according to Dranias et al, 2015.
+        Bursts were defined as the presence of four spikes in a 100ms with an interval of 50ms to the next spike after.
 
-# ----------------------------------------------------------------------------------------------------------------- #
+            Arguments:
 
-    def burstdranias_100ms(self, MEA):
+                SPKS_NeuronalData object
+
+            Returns:
+
+               Dictionary of bursts per electrode.
+
+            """
 
         # Variables #
 
@@ -291,16 +298,22 @@ class SPKS_NeuronalData:
 
         return electrodecount
 
-# ----------------------------------------------------------------------------------------------------------------- #
-
-# Computes burst counts and profiles  #
-
-# Bursts were defined as the presence of four spikes in a 500ms based on the timescales of my dataset #
-
-# ----------------------------------------------------------------------------------------------------------------- #
-
 
     def burstdranias_500ms(self, MEA):
+
+        """Computes burst counts and profiles of a SPKS_NeuronalData object according to Dranias et al, 2015.
+        Bursts were defined as the presence of four spikes in a 500ms based on the timescales of my dataset recorded at
+        the  Brain Embodiment Laboratory at the University Of Reading
+
+            Arguments:
+
+                SPKS_NeuronalData object
+
+            Returns:
+
+               Dictionary of bursts per electrode.
+
+            """
 
         # Variables #
 
@@ -394,7 +407,7 @@ class SPKS_NeuronalData:
         #ax = sns.distplot(burstprofile[electrode], color='y')
         #ax.set(title='MEA ' + MEA)
 
-        return burstduration
+        return electrodecount
 
 
 # ----------------------------------------------------------------------------------------------------------------- #
