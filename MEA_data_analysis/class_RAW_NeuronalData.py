@@ -2,9 +2,15 @@ from copy import deepcopy
 from class_SPKS_NeuronalData import *
 import gc
 import h5py
-import multiprocessing as mp
+import matplotlib.pyplot as plt
+import numpy as np
+import pickle
+import seaborn as sns
 from scipy import signal, io
 import time
+
+plt.switch_backend('agg')
+plt.rcParams.update({'font.size': 5})
 
 
 class RAW_NeuronalData:
@@ -55,10 +61,10 @@ class RAW_NeuronalData:
         order 3 with cutoff frequencies of 60Hz and 40Hz.
 
 
-                Returns:
+            Returns:
 
-                   Filtered RAW_NeuronalData object
-                """
+               Filtered RAW_NeuronalData object
+            """
 
         for key in self.mcd_data:
 
@@ -66,6 +72,7 @@ class RAW_NeuronalData:
 
                 self.mcd_data[key] = butter_bandstop_filter(data=self.mcd_data[key], lowcut=40, highcut=60, fs=25000,
                                                             order=3)
+
         return self
 
     def dynamic_thresholding(self, key, spiketimes, spikeshapes, spikeapexes, threshold_array):
@@ -95,7 +102,6 @@ class RAW_NeuronalData:
         threshold_array[key].append(threshold)
 
         spikes = 0
-
         occurence = 0
 
         while spikes < size:  # Flags detected spikes #
@@ -124,6 +130,7 @@ class RAW_NeuronalData:
                     spikeshapes[key][occurence][24 + forwards] = self.mcd_data[key][spike_apex + forwards]
 
                 spikes = spike_apex - 25  # Sets the investigated point to the beginning of the spike before removal
+
                 occurence = occurence + 1
 
                 for del_backwards in range(0, 25):  # Clears for dynamic thresholding
@@ -174,9 +181,6 @@ class RAW_NeuronalData:
             while detection == 1:
 
                 print("Round number ", round, " for electrode ", key)
-
-                plot_rawdata_singlechannel(channeldata=self.mcd_data[key], channelnumber=key, recursiveround=round,
-                                           figpath="C:/Users/pc1rss/Desktop/")
 
                 detection = self.dynamic_thresholding(key, spiketimes, spikeshapes, spikeapexes, threshold_array)
                 round = round + 1
@@ -272,7 +276,7 @@ class RAW_NeuronalData:
         del self
         gc.collect()
 
-    def recursive_spike_detection(self):
+    def recursive_spike_detection(self, MEA, figpath):
 
         """ Reads a RAW_NeuronalData object and extract spikes for each channel utilising the recursive spike detection
         algorithm devised at the University of Reading, converting it to a SPKS_NeuronalData object
@@ -285,6 +289,8 @@ class RAW_NeuronalData:
 
                SPKS_NeuronalData object
             """
+
+        start = time.asctime(time.localtime(time.time()))  # Profiling
 
         spiketimes = dict()  # Dictionary that will contain the detected spiketimes
         spikeshapes = dict()  # Dictionary that will contain the detected spikeshapes
@@ -306,17 +312,30 @@ class RAW_NeuronalData:
 
             self.electrode_spike_detection(key, spiketimes, spikeshapes, spikeapexes, threshold_array)
 
-        print("Out of the detection loop.")
-        spike_data = SPKS_NeuronalData(input="RAWdata", occurrence_ms=spiketimes, shapedata=spikeshapes)
-        print("Spike data created.")
-        dict_to_file(spike_data.spikeshapes, filename="10672_spikeshapes",
-                     output_path="C:\\Users\\pc1rss\\Dropbox\PhD\\")
-        print("Spike shapes printed.")
+        finish = time.asctime(time.localtime(time.time()))
+
+        plot_thresholds(figpath=figpath, MEA=MEA, threshold_array=threshold_array)
+
+        print("Started the recursive detection at", start, "and finished at", finish)  # Profiling
+
+        duration = len(self.mcd_data['ms'])
+
+        spike_data = SPKS_NeuronalData(input="RAWdata", occurrence_ms=spiketimes, shapedata=spikeshapes,
+                                       duration=duration)
+
+        file_pi = open(figpath + MEA + '.obj', 'wb')
+        pickle.dump(spike_data, file_pi)
 
         del self
         gc.collect()
 
         return spike_data
+
+# ----------------------------------------------------------------------------------------------------------------- #
+
+# Filtering functions #
+
+# ----------------------------------------------------------------------------------------------------------------- #
 
 
 def butter_bandstop(lowcut, highcut, fs, order):
@@ -371,6 +390,40 @@ def butter_bandstop_filter(data, lowcut, highcut, fs, order):
     return y
 
 
+# ----------------------------------------------------------------------------------------------------------------- #
+
+# Mock data #
+
+# ----------------------------------------------------------------------------------------------------------------- #
+
+def noise():
+
+    # Generates channel noise using a Ornstein-Uhlenbeck process #
+
+    duration = np.linspace(0, 300, 25000)
+    N = len(duration)
+    noise = np.zeros(N)
+    h = duration[1] - duration[0]
+    tau = 0.5
+    Xrest = 0
+    Xthres = -15
+    noise[0] = Xrest
+
+    I = lambda t: 0.0
+
+    for i in range(N-1):
+
+        noise[i + 1] = noise[i] - h*(noise[i] - Xrest)/tau + np.sqrt(h)*np.random.normal(scale=10.0) + I(duration)
+
+    return duration, noise
+
+# ----------------------------------------------------------------------------------------------------------------- #
+
+# Functions for data writing #
+
+# ----------------------------------------------------------------------------------------------------------------- #
+
+
 def dict_to_file(dict, filename, output_path):
 
     """ Writes any dictionary to a text file
@@ -391,6 +444,41 @@ def dict_to_file(dict, filename, output_path):
     file = open(fullname, "w+")
     file.write(str(dict))
     file.close()
+
+# ----------------------------------------------------------------------------------------------------------------- #
+
+# Functions for data visualisation #
+
+# ----------------------------------------------------------------------------------------------------------------- #
+
+
+def plot_thresholds(figpath, MEA, threshold_array):
+
+    """ Plots the evolution of the threshold detection
+
+            Arguments:
+
+                threshold_array(dict): Dictionary with the detected thresholds from the recursive detection.
+                MEA(str): Data file being analysed
+                figpath(str): Where to plot the data (full path)
+
+          Returns:
+
+              Saved plot.
+
+           """
+
+    for electrode in threshold_array.keys():
+
+        fig = plt.figure(dpi=300)
+
+        ax = sns.scatterplot(data=np.array(threshold_array[str(electrode)]))
+        ax.set(title="MEA " + str(MEA) + "Electrode " + str(electrode))
+        plt.ylabel("Voltage (uV)")
+        plt.xlabel("Instant threshold")
+
+        plt.savefig(figpath + "MEA_" + str(MEA) + "_Electrode_" + str(electrode) + "_thresholds_.png", format='png')
+        plt.close(fig)
 
 
 def plot_rawdata_singlechannel(channeldata, channelnumber, recursiveround, figpath):
@@ -423,3 +511,41 @@ def plot_rawdata_singlechannel(channeldata, channelnumber, recursiveround, figpa
     plt.close(fig)
 
 
+def plot_spike(voltage, occurrence, figpath):
+
+    """ Plots a detected spike
+
+          Arguments:
+
+              voltage(list): Raw voltage data for a given electrode.
+              occurrence(str): Spike number
+              figpath(str): Where to plot the data (full path)
+
+        Returns:
+
+            Saved plot.
+
+          """
+
+    fig = plt.figure(dpi=300)
+
+    plt.plot(voltage)
+
+    plt.ylim(bottom=-80, top=30)
+    plt.ylabel("Voltage (uV)")
+    plt.xlim(left=0, right=75)
+    plt.xlabel("Data points")
+
+    plt.savefig(figpath + str(occurrence) + "_spike_.png", format='png')
+    plt.close(fig)
+
+
+def visualise_noise(output_path, noise):
+
+    filename = "MEA_modelled_noise"
+
+    sns.set_palette(sns.dark_palette("purple"))
+
+    ax = sns.lineplot(x=noise[0], y=noise[1])
+
+    plt.savefig(output_path + filename + ".png", format='png')
