@@ -417,6 +417,21 @@ def noise():
 
     return duration, noise
 
+
+def poisson_spike_generator():
+
+    spikes = []
+    num_cells = 1
+
+    # Generates spike data using a simple Poisson-like generator #
+
+    for i in range(num_cells):
+
+        isi = np.random.poisson(size=300)
+        spikes.append(np.cumsum(isi))
+
+    return spikes
+
 # ----------------------------------------------------------------------------------------------------------------- #
 
 # Functions for data writing #
@@ -537,6 +552,29 @@ def plot_spike(voltage, occurrence, figpath):
     plt.xlabel("Data points")
 
     plt.savefig(figpath + str(occurrence) + "_spike_.png", format='png')
+    plt.close(fig)
+
+
+def visualise_spikes_generated(output_path):
+
+    spikes = poisson_spike_generator()
+
+    # Visualise #
+
+    fig = plt.figure(dpi=500)
+
+    filename = 'spikes'
+    cells = [1]
+
+    for cell in range(len(spikes)):
+
+        plt.plot(spikes[cell], np.repeat(cells[cell], len(spikes[cell])), marker='o')
+
+    plt.ylabel("Electrode number")
+    plt.xlabel("Spike times")
+    plt.title("Poisson Spiking")
+
+    plt.savefig(output_path + filename + ".png", format='png')
     plt.close(fig)
 
 
