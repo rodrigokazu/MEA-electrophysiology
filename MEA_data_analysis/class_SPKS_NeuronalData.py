@@ -1,35 +1,41 @@
-import scipy.io
+import networkx as nx
 import numpy as np
 import matplotlib.pyplot as plt
+import pprint as pp
 import seaborn as sns
+import scipy.signal as signal
+import scipy.io
+from class_RAW_NeuronalData import *
 
-# warnings.filterwarnings("ignore", category=matplotlib.cbook.mplDeprecation)  # Ignores pointless matplotlib warnings
-plt.rcParams.update({'font.size': 8})
+#warnings.filterwarnings("ignore", category=matplotlib.cbook.mplDeprecation)  # Ignores pointless matplotlib warnings
+plt.switch_backend('agg')
+plt.rcParams.update({'font.size': 5})
 
 
 class SPKS_NeuronalData:
 
-    def __init__(self, input, occurrence_ms, shapedata, *args):
+    def __init__(self, input, occurrence_ms, shapedata, **args):
 
         """ Reads multiple *.mat files with empirically recorded neuronal data from multielectrode arrays exported with
         MCD_files_export_uV_and_mS_plus_METADATA.m script contained pre-detected spike trains and generates a
         SPKS_NeuronalData object. Alternatively, imports the same information from the recursive spike detection of the
         class RAW_NeuronalData
 
-                   Arguments:
+               Arguments:
 
-                       input (str): Either "RAWdata" or "MATLAB" as the source of the data
-                       occurrence_ms(str or dict): path to the *.mat file containing the spike times or dictionary with
-                       spiketimes if the source is "RAWdata".
-                       shapedata(str or dict): path to the *.mat file containing the spike shapes or dictionary with
-                       spikeshapes if the source is "RAWdata".
-                       time_array (str): path to the *.mat file containing the recorded timestamps in ms (MATLAB only)
-                       channelids (str): path to the *.mat file containing the recorded electrode numbers (MATLAB only)
+                   input (str): Either "RAWdata" or "MATLAB" as the source of the data
+                   occurrence_ms(str or dict): path to the *.mat file containing the spike times or dictionary with
+                   spiketimes if the source is "RAWdata".
+                   shapedata(str or dict): path to the *.mat file containing the spike shapes or dictionary with
+                   spikeshapes if the source is "RAWdata".
+                   duration(int): Record duration is the source is "RAWdata"
+                   time_array (str): path to the *.mat file containing the recorded timestamps in ms (MATLAB only)
+                   channelids (str): path to the *.mat file containing the recorded electrode numbers (MATLAB only)
 
-                   Returns:
+               Returns:
 
-                      SPKS_NeuronalData object
-                   """
+                  SPKS_NeuronalData object
+               """
         # MATLAB input needs the extra arguments time_array and channelids #
 
         self.spiketimes = {}
@@ -39,8 +45,8 @@ class SPKS_NeuronalData:
 
         if input == "MATLAB":
 
-            recorded_timedata = scipy.io.loadmat(time_array)
-            recorded_channelids = scipy.io.loadmat(channelids)
+            recorded_timedata = scipy.io.loadmat(args.pop('time_array'))
+            recorded_channelids = scipy.io.loadmat(args.pop('channelids'))
             input_occurrencedata = scipy.io.loadmat(occurrence_ms)
             input_shapedata = scipy.io.loadmat(shapedata)
 
@@ -75,17 +81,23 @@ class SPKS_NeuronalData:
 
         elif input == "RAWdata":
 
-            self.spiketimes = occurrence_ms
+            for channel in occurrence_ms.keys():
+
+                # Channels with less than or 4 spikes are excluded from further analysis #
+
+                if len(occurrence_ms[channel]) >= 4:
+
+                    self.spiketimes[channel] = occurrence_ms[channel]
+
+            self.spiketimes['duration'] = args.pop('duration')
 
             for channel in self.spiketimes.keys():
 
-                if len(self.spiketimes[channel]) > 4:
+                if channel != 'duration':
+
+                    if len(occurrence_ms[channel]) >= 4:
 
                         self.spikeshapes[channel] = shapedata[channel]
-
-                else:
-
-                    del self.spiketimes[channel]
 
     def exclusion(self):
 
@@ -116,6 +128,31 @@ class SPKS_NeuronalData:
 
 # ----------------------------------------------------------------------------------------------------------------- #
 
+    def bin_the_spikes(self, bin_count):
+
+        bin_count = int(bin_count)
+
+        binned_channels = {}  # Dictionary that will store the binned arrays
+
+        for keys in self.spiketimes.keys():
+
+            if keys != 'duration':
+
+                binned_channels[keys] = np.zeros(bin_count)  # Adds zero to each position of the binned array
+
+                for binning in range(0, len(self.spiketimes[keys])):
+
+                    for bin_comparison in range(1, bin_count):
+
+                        current_bin = bin_comparison * 1000
+                        last_bin = current_bin - 1000
+
+                        if last_bin < self.spiketimes[keys][binning] < current_bin:
+
+                            binned_channels[keys][bin_comparison] = binned_channels[keys][bin_comparison] + 1
+
+        return binned_channels
+
     def electrode_FR(self):
 
         """ Computes the firing rates in Hz for all electrodes of a SPKS_NeuronalData object
@@ -137,19 +174,20 @@ class SPKS_NeuronalData:
         duration_ms = self.spiketimes['duration']
         duration_s = duration_ms / 1000
 
-        for key in self.spikeshapes:
+        for key in self.spiketimes.keys():
 
-            # Compute the total spike number per electrode #
+            if key != 'duration':
 
-            spike_number = len(self.spikeshapes[key])
+                 # Compute the total spike number per electrode #
 
-            # Compute and store the firing rates #
+                spike_number = len(self.spiketimes[key])
 
-            electrode_fr_s = spike_number / duration_s
-            firingrates[key] = electrode_fr_s
+                # Compute and store the firing rates #
+
+                electrode_fr_s = spike_number / duration_s
+                firingrates[key] = electrode_fr_s
 
         return firingrates
-
 
     def MEA_overall_firingrate(self):
 
@@ -184,8 +222,29 @@ class SPKS_NeuronalData:
 
         return overall_firingrate_s
 
+    def number_of_detections(self, filename, output_path):
 
-    def burstdranias_100ms(self):
+        fullname = output_path + filename + ".txt"
+        file = open(fullname, "w+")
+        all_detections = 0
+
+        for key in self.spiketimes.keys():
+
+            if key != 'duration':
+
+                # Compute the total spike number per electrode #
+
+                spike_number = len(self.spiketimes[key])
+                electrode_detections = "Electrode " + str(key) + " had " + str(spike_number) + " detections. \n"
+                file.write(str(electrode_detections))
+                all_detections = all_detections + spike_number
+
+        overall_detections = "This MEA had " + str(all_detections) + " spikes."
+        file.write(str(overall_detections))
+
+        file.close()
+
+    def burstdranias_100ms(self, MEA):
 
         """Computes burst counts and profiles of a SPKS_NeuronalData object according to Dranias et al, 2015.
         Bursts were defined as the presence of four spikes in a 100ms with an interval of 50ms to the next spike after.
@@ -298,7 +357,6 @@ class SPKS_NeuronalData:
 
         return electrodecount
 
-
     def burstdranias_500ms(self, MEA):
 
         """Computes burst counts and profiles of a SPKS_NeuronalData object according to Dranias et al, 2015.
@@ -409,6 +467,100 @@ class SPKS_NeuronalData:
 
         return electrodecount
 
+    def get_bin_number(self):
+
+        # Each bin has one second
+
+        duration_ms = self.spiketimes['duration']
+        bins = duration_ms / 1000
+
+        return bins
+
+    def cn_xcov_analysis(self, G, binned_channels, filename, output_path):
+
+        dict_xcov_peak_and_threshold_eachpair = dict()
+
+        electrodes = list()
+
+        for keys in self.spiketimes.keys():
+
+            if keys != 'duration':
+
+                electrodes.append(keys)
+
+        for xcov in range(0, len(electrodes)):
+
+            key = electrodes[xcov]
+
+            if key != 'duration':
+
+                first_array = binned_channels[key]
+                first_array_centered = first_array - first_array.mean()  # Centers the array
+
+                for xcov_2 in range(xcov + 1, len(electrodes)):
+
+                    if xcov_2 == len(electrodes):
+
+                       continue
+
+                    else:
+
+                        key_2 = electrodes[xcov_2]
+
+                        if key_2 != 'duration':
+
+                            second_array = binned_channels[key_2]
+
+                            second_array_centered = second_array - second_array.mean()  # Centers the array
+
+                            print(' \n\n Correlating channel ', key, ', which has', len(first_array), 'spikes with channel',
+                                  key_2, 'that has', len(second_array), 'spikes.')
+
+                            crosscovariance_pair = signal.correlate(first_array_centered, second_array_centered)
+
+                            threshold = 4 * np.average(crosscovariance_pair)
+
+                            if np.amax(crosscovariance_pair) > threshold: # This finds peaks (Downes 2012)
+
+                                print('Channel pair has a peak of', np.amax(crosscovariance_pair))
+
+                                G.add_edge(int(key), int(key_2))
+
+                        key = str(key)  # Converts keys into strings for writing
+                        key_2 = str(key_2)
+
+                        xcov_key = key + '_' + key_2  # Create a node pair string
+
+                        dict_xcov_peak_and_threshold_eachpair[xcov_key] = \
+                            ['Peak:', np.amax(crosscovariance_pair),
+                             'Threshold:', threshold]
+
+                        dict_to_file(dict=dict_xcov_peak_and_threshold_eachpair, filename=filename,
+                                     output_path=output_path)
+        return G
+
+    def complete_cn_analysis(self, filename, output_path):
+
+        G = generateMEA()
+
+        bin_count = self.get_bin_number()
+
+        binned_channels = self.bin_the_spikes(bin_count)
+
+        output_path = output_path
+
+        filename = filename
+
+        G = self.cn_xcov_analysis(G=G, binned_channels=binned_channels, filename=filename, output_path=output_path)
+
+        draw_and_save_graph(G=G, output_path=output_path, filename=filename)
+
+
+# ----------------------------------------------------------------------------------------------------------------- #
+
+# Methods for CN analysis #
+
+# ----------------------------------------------------------------------------------------------------------------- #
 
 # ----------------------------------------------------------------------------------------------------------------- #
 
@@ -416,15 +568,71 @@ class SPKS_NeuronalData:
 
 # ----------------------------------------------------------------------------------------------------------------- #
 
-    # Show a default plot with a kernel density estimate and histogram with bin size determined automatically #
+    def burstduration_visualisation(self, figpath, MEA):
 
-    def hist_ISI_MEA(self, MEA):
+        """ Barplot of the burst duration of a SPKS_NeuronalData object with 100ms or 500ms definition
+
+              Arguments:
+
+                  SPKS_NeuronalData object
+                  MEA(str): MEA number for plot title
+
+              Returns:
+
+                 Barplot.
+              """
+
+        Burstduration = self.burstdranias_100ms(MEA)
+        dict_to_file(dict=Burstduration, filename=str(MEA)+"burstdranias_100ms", output_path=figpath)
+
+        if len(Burstduration.keys()) >= 1:
+
+            fig = plt.figure(dpi=300)
+
+            plt.bar(*zip(*sorted(Burstduration.items())), color='m')
+            plt.title(MEA)
+            plt.ylabel('Burst count')
+            plt.ylim(0, 400)
+            plt.xlabel("Electrode")
+            plt.savefig(figpath + str(MEA) + "_burst_duration_100ms.png", format='png')
+            plt.close(fig)
+
+        Burstduration500 = self.burstdranias_500ms(MEA)
+        dict_to_file(dict=Burstduration500, filename=str(MEA) + "burstdranias_500ms", output_path=figpath)
+
+
+        if len(Burstduration500.keys()) >= 1:
+
+            fig2 = plt.figure(dpi=300)
+
+            plt.bar(*zip(*sorted(Burstduration500.items())), color='m')
+            plt.title(MEA)
+            plt.ylabel('Burst count')
+            plt.ylim(0, 400)
+            plt.xlabel("Electrode")
+            plt.savefig(figpath + str(MEA) + "_burst_duration_500ms.png", format='png')
+            plt.close(fig2)
+
+    def hist_ISI_MEA(self, figpath, MEA):
+
+        """ Plots a histogram of the interspike interval of a SPKS_NeuronalData object and shows a default plot with a
+         kernel density estimate and histogram with bin size determined automatically.
+
+              Arguments:
+
+                  SPKS_NeuronalData object
+                  MEA(str): MEA number for plot title
+
+              Returns:
+
+                 Histogram plot.
+              """
 
         # Method perfoms the analysis for the whole MEA or per electrode #
 
         # This can be changed inside the distplot and ax.set functions #
 
-        grid_plot = plt.figure(dpi=100)
+        grid_plot = plt.figure(dpi=300)
         plotnumber = 1
 
         intervals = dict()
@@ -433,13 +641,14 @@ class SPKS_NeuronalData:
         initial_position = 0
         final_position = 1
 
+        print('Performing the ISI histogram analysis')
+
         for electrode in self.spiketimes.keys():
 
             if electrode == 'duration':  # First position on the spiketimes dictionary is the duration of recording #
 
                 continue
 
-            print('Channel analysed: ', electrode, 'with', len(self.spiketimes[electrode]), 'spikes.')
             intervals[electrode] = list()  # Each list stores the ISIs of a given electrode
 
             while final_position < len(self.spiketimes[electrode]):  # Keeps the code into the arrays limit #
@@ -468,9 +677,8 @@ class SPKS_NeuronalData:
 
         grid_plot.suptitle("MEA "+MEA, fontsize=16)
         plt.subplots_adjust(hspace=1, wspace=0.65)
-        plt.show()
-
-    # Data visualisation for IBI per MEA #
+        plt.savefig(figpath + str(MEA) + "_hist_ISI.png", format='png')
+        plt.close(grid_plot)
 
     def IBI_visualisation(self, MEA):
 
@@ -479,6 +687,7 @@ class SPKS_NeuronalData:
         for electrode in IBI:
 
             if len(IBI[electrode]) == 0:
+
                 continue
 
             plt.plot(IBI[electrode], label="Electrode_" + str(electrode))
@@ -488,29 +697,12 @@ class SPKS_NeuronalData:
             plt.ylim(0, 50)
             plt.xlabel("Inverval number")
 
-    # Data visualisation for burst duration per MEA #
-
-    def Burstduration_visualisation(self, MEA):
-
-        Burstduration = spike_data.burstdranias_100ms(MEA)
-
-        for electrode in Burstduration:
-
-            if len(Burstduration[electrode]) == 0:
-                continue
-
-            plt.bar(*zip(*sorted(Burstduration[electrode].items())), color='m')
-            plt.title(MEA)
-            plt.ylabel('Burst size')
-            plt.ylim(0, 400)
-            plt.xlabel("Electrode" + str(electrode))
-
-
 # ----------------------------------------------------------------------------------------------------------------- #
 
 # Functions for data visualisation #
 
 # ----------------------------------------------------------------------------------------------------------------- #
+
 
 def FR_perelectrode_barplot(figpath, firingrates, MEA):
 
@@ -537,5 +729,113 @@ def FR_perelectrode_barplot(figpath, firingrates, MEA):
         plt.title('MEA ' + MEA + ' firing rates')
         plt.ylim(0, 0.1)
 
-        plt.savefig(figpath + str(MEA) + "FR_Hz.png", format='png')
+        plt.savefig(figpath + str(MEA) + "_FR_Hz.png", format='png')
         plt.close(fig)
+
+
+def generateMEA():
+
+    """
+    Adds the 8x8 MEA nodes to a graph G
+    """
+
+    G = nx.Graph()  # This generates your network using NetworkX
+
+    for node_ID in range(1, 61):
+
+        if node_ID < 7:
+            y = 8 - node_ID
+            G.add_node(node_ID + 11, pos=(1, y))
+        else:
+            pass
+        if 6 < node_ID < 15:
+            y = 15 - node_ID
+            G.add_node(node_ID + 14, pos=(2, y))
+        else:
+            pass
+
+        if 14 < node_ID < 23:
+            y = 23 - node_ID
+            G.add_node(node_ID + 16, pos=(3, y))
+        else:
+            pass
+
+        if 22 < node_ID < 31:
+            y = 31 - node_ID
+            G.add_node(node_ID + 18, pos=(4, y))
+        else:
+            pass
+
+        if 30 < node_ID < 39:
+            y = 39 - node_ID
+            G.add_node(node_ID + 20, pos=(5, y))
+        else:
+            pass
+
+        if 38 < node_ID < 47:
+            y = 47 - node_ID
+            G.add_node(node_ID + 22, pos=(6, y))
+        else:
+            pass
+
+        if 46 < node_ID < 55:
+            y = 55 - node_ID
+            G.add_node(node_ID + 24, pos=(7, y))
+        else:
+            pass
+
+        if 54 < node_ID < 61:
+            y = 62 - node_ID
+            G.add_node(node_ID + 27, pos=(8, y))
+        else:
+            pass
+
+    return G
+
+
+def draw_and_save_graph(G, output_path, filename):
+
+    fig = plt.figure(dpi=500)
+
+    positions = nx.get_node_attributes(G, 'pos')  # Gets the positions of each node for the final plot
+    nx.draw_networkx(G, positions, node_size=500, node_color='white', edgelist=G.edges())  # Drawing function
+    nx.write_gml(G, output_path + filename + ".gml")  # Exporting graph for further analysis
+
+    plt.savefig(output_path + filename + ".png", format='png')
+    plt.close(fig)
+
+# ----------------------------------------------------------------------------------------------------------------- #
+
+# Functions for data writing #
+
+# ----------------------------------------------------------------------------------------------------------------- #
+
+def write_FRs(MEA, FR, filename, output_path):
+
+    fullname = output_path + filename + ".txt"
+    file = open(fullname, "w+")
+    string_to_write = "Culture " + str(MEA) + " had a firing rate of " + str(FR) + " Hz."
+    file.write(string_to_write)
+    file.close()
+
+
+def dict_to_file(dict, filename, output_path):
+
+    """ Writes any dictionary to a text file
+
+               Arguments:
+
+                dict(dict): Dictionary to be written
+                filename(str): name of the output file
+                output_path(str): Full path of the output file
+
+              Returns:
+
+                 Output file
+
+              """
+
+    fullname = output_path + filename + ".txt"
+    file = open(fullname, "w+")
+    file.write(str(dict))
+    file.close()
