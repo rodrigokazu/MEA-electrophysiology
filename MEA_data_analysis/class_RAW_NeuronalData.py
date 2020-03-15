@@ -398,9 +398,9 @@ def butter_bandstop_filter(data, lowcut, highcut, fs, order):
 
 def noise():
 
-    # Generates channel noise using a Ornstein-Uhlenbeck process #
+    #  Generates channel noise using a Ornstein-Uhlenbeck process
 
-    duration = np.linspace(0, 300, 25000)
+    duration = np.linspace(0, 231, 5792501)  # 231 seconds, sampling rate of 25 kHz, takes a while to run
     N = len(duration)
     noise = np.zeros(N)
     h = duration[1] - duration[0]
@@ -418,7 +418,7 @@ def noise():
     return duration, noise
 
 
-def poisson_spike_generator():
+def exponential_spike_generator():
 
     spikes = []
     num_cells = 1
@@ -427,10 +427,41 @@ def poisson_spike_generator():
 
     for i in range(num_cells):
 
-        isi = np.random.poisson(size=300)
-        spikes.append(np.cumsum(isi))
+        isi = np.random.exponential(size=300) # Number of spikes
+        spiketime = np.cumsum(isi)
+        spiketime = spiketime.astype('int')
+        spikes.append(spiketime)
+
+        print("Generated mock spiketimes.")
 
     return spikes
+
+
+def impose_template(noise, spikes, template):
+
+    print("Got into the impose function.")
+
+    spike_number = len(spikes[0])
+
+    recording_size = 5792501
+
+    max_position = recording_size - 75
+
+    imposed = noise[1]
+
+    for firing in range(0, spike_number):
+
+        spike_time = spikes[0][firing]
+
+        position = spike_time * 25000
+
+        if position < max_position:
+
+            for voltage in range(0, 75):
+
+                imposed[position + voltage] = template[voltage]
+
+    return noise[0], imposed
 
 # ----------------------------------------------------------------------------------------------------------------- #
 
@@ -557,7 +588,7 @@ def plot_spike(voltage, occurrence, figpath):
 
 def visualise_spikes_generated(output_path):
 
-    spikes = poisson_spike_generator()
+    spikes = exponential_spike_generator()
 
     # Visualise #
 
@@ -578,9 +609,7 @@ def visualise_spikes_generated(output_path):
     plt.close(fig)
 
 
-def visualise_noise(output_path, noise):
-
-    filename = "MEA_modelled_noise"
+def visualise_noise(output_path, noise, filename):
 
     sns.set_palette(sns.dark_palette("purple"))
 
