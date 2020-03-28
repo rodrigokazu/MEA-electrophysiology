@@ -10,12 +10,12 @@ from scipy import signal, io
 import time
 
 plt.switch_backend('agg')
-plt.rcParams.update({'font.size': 5})
+plt.rcParams.update({'font.size': 10})
 
 
 class RAW_NeuronalData:
 
-    def __init__(self, uv_data, time_array, channelids):
+    def __init__(self, uv_data, input, time_array, channelids):
 
         """ Reads multiple *.mat files with empirically recorded neuronal data from multielectrode arrays exported with the
          MCD_files_export_uV_and_mS_plus_METADATA.m script and generates a RAW_NeuronalData object
@@ -23,6 +23,7 @@ class RAW_NeuronalData:
                 Arguments:
 
                     uvdata (str): path to the *.hdf5 file containing voltage times
+                    input(str): input source
                     time_array (str): path to the *.mat file containing the recorded timestamps in ms
                     channelids (str): path to the *.mat file containing the recorded electrode numbers
 
@@ -31,33 +32,52 @@ class RAW_NeuronalData:
                    RAW_NeuronalData object
                 """
 
-        self.mcd_data = {}
+        if input == "MATLAB":
 
-        file = h5py.File(uv_data, 'r')  # Generating a h5py File Object #
-        array_of_arrays = np.array(file['voltagedata_cell'])  # Converts the object into a numpy array of arrays #
+            self.mcd_data = {}
 
-        recorded_uvdata = np.transpose(array_of_arrays)  # Transposes it since the data comes rotated #
-        recorded_timedata = io.loadmat(time_array)
-        recorded_channelids = io.loadmat(channelids)
+            file = h5py.File(uv_data, 'r')  # Generating a h5py File Object #
+            array_of_arrays = np.array(file['voltagedata_cell'])  # Converts the object into a numpy array of arrays #
 
-        # The first index after it stands for the matrix line, the second one for the column #
-        # Column ZERO has all the channel names, already in the correct order #
+            recorded_uvdata = np.transpose(array_of_arrays)  # Transposes it since the data comes rotated #
+            recorded_timedata = io.loadmat(time_array)
+            recorded_channelids = io.loadmat(channelids)
 
-        self.mcd_data['ms'] = list()  # First entry of the dictionary will be the time in ms #
-        self.mcd_data['ms'].extend(recorded_timedata['timedata'][0])
+            # The first index after it stands for the matrix line, the second one for the column #
+            # Column ZERO has all the channel names, already in the correct order #
 
-        # Then we add the channel IDs and the voltage data #
+            self.mcd_data['ms'] = list()  # First entry of the dictionary will be the time in ms #
+            self.mcd_data['ms'].extend(recorded_timedata['timedata'][0])
 
-        for channel in range(0, 60):
+            # Then we add the channel IDs and the voltage data #
 
-            key = recorded_channelids['channelID_matrix'][channel][0][0]  # First column has the channel IDs #
+            for channel in range(0, 60):
 
-            self.mcd_data[key] = list()
-            self.mcd_data[key].extend(recorded_uvdata[channel])  # Filling the arrays with the voltages #
+                key = recorded_channelids['channelID_matrix'][channel][0][0]  # First column has the channel IDs #
+
+                self.mcd_data[key] = list()
+                self.mcd_data[key].extend(recorded_uvdata[channel])  # Filling the arrays with the voltages #
+
+        elif input == "RAWdata":
+
+            self.mcd_data = {}
+
+            self.mcd_data['mock_spiketimes'] = list()
+            self.mcd_data['mock_spiketimes'].extend(time_array['mock_spiketimes'])
+
+            for channel in time_array.keys():
+
+                self.mcd_data['ms'] = list()  # First entry of the dictionary will be the time in ms #
+                self.mcd_data['ms'].extend(time_array[channel])
+
+                if channel != 'mock_spiketimes':  # Avoiding the mock spiketimes
+
+                    self.mcd_data[channel] = list()
+                    self.mcd_data[channel].extend(uv_data[channel])  # Filling the arrays with the voltages #
 
     def bandstop(self):
 
-        """ Pass the all electrodes of a MEA recording stored as a RAW_NeuronalData object trough a bandstop filter of
+        """ Pass the all electrodes of a MEA recording stored as a RAW_NeuronalData object through a bandstop filter of
         order 3 with cutoff frequencies of 60Hz and 40Hz.
 
 
@@ -70,12 +90,14 @@ class RAW_NeuronalData:
 
             if key != 'ms':
 
-                self.mcd_data[key] = butter_bandstop_filter(data=self.mcd_data[key], lowcut=40, highcut=60, fs=25000,
+                if key != 'mock_spiketimes':
+
+                    self.mcd_data[key] = butter_bandstop_filter(data=self.mcd_data[key], lowcut=40, highcut=60, fs=25000,
                                                             order=3)
 
         return self
 
-    def dynamic_thresholding(self, key, spiketimes, spikeshapes, spikeapexes, threshold_array):
+    def dynamic_thresholding(self, key, spiketimes, spikeshapes, spikeapexes, threshold_array, round, figpath):
 
         """ Reads a RAW_NeuronalData object channel(electrode) and extract spikes for it utilising the recursive spike
         detection algorithm devised at the University of Reading, altering the dictionaries and returning if a next round
@@ -123,33 +145,37 @@ class RAW_NeuronalData:
 
                 for backwards in range(0, 25):  # Flags the descent of the spike
 
-                    spikeshapes[key][occurence][24 - backwards] = self.mcd_data[key][int(spike_apex - backwards)]
+                    spikeshapes[key][occurence][24 - backwards] = self.mcd_data[key][spike_apex - backwards]
 
                 for forwards in range(0, 50):  # Flags the raise of the spike
 
                     spikeshapes[key][occurence][24 + forwards] = self.mcd_data[key][spike_apex + forwards]
 
-                spikes = spike_apex - 25  # Sets the investigated point to the beginning of the spike before removal
-
-                occurence = occurence + 1
+                plot_spike(voltage=spikeshapes[key][occurence], occurrence=str(occurence), electrode=key,
+                           figpath=figpath, round=str(round))
 
                 for del_backwards in range(0, 25):  # Clears for dynamic thresholding
 
                     self.mcd_data[key] = np.delete(self.mcd_data[key], spike_apex - del_backwards)
 
+                spike_apex = spike_apex - 25
+
                 for del_forwards in range(0, 50):  # Clears for dynamic thresholding
 
-                    self.mcd_data[key] = np.delete(self.mcd_data[key], spike_apex + del_forwards)
+                    self.mcd_data[key] = np.delete(self.mcd_data[key], spike_apex)
 
-                if occurence != 1:  # Accounting for the excluded spikes
+                spike_apex = spikes + cutout
 
-                    conversion_factor = occurence - 1
-                    conversion_factor = 75 * conversion_factor
-                    detection_time = spikes + conversion_factor
+                occurence = occurence + 1
+
+                if occurence != 0:  # Accounting for the excluded spikes
+
+                    detection_time = spike_apex  # 25 samples per ms
                     spiketimes[key].append(self.mcd_data['ms'][detection_time])
 
                 size = len(self.mcd_data[key])  # Updates the size
-                spikes = spikes + 1  # Moves the analysed point
+                spikes = spikes - 25  # Sets the investigated point to the beginning of the spike before removal
+                # spikes = spikes + 63  # Refractory period of 2.5 ms
 
             else:
 
@@ -157,7 +183,7 @@ class RAW_NeuronalData:
 
         return detection
 
-    def electrode_spike_detection(self, key, spiketimes, spikeshapes, spikeapexes, threshold_array):
+    def electrode_spike_detection(self, key, spiketimes, spikeshapes, spikeapexes, threshold_array, figpath):
 
         """ Reads a RAW_NeuronalData object channel(electrode) and extract spikes for it utilising the recursive spike
        detection algorithm devised at the University of Reading dynamic_thresholding(self, key, spiketimes, spikeshapes,
@@ -175,21 +201,30 @@ class RAW_NeuronalData:
 
         if key != 'ms':
 
-            detection = 1
-            round = 1
+            if key != 'mock_spiketimes':
 
-            while detection == 1:
+                detection = 1
+                round = 0
 
-                print("Round number ", round, " for electrode ", key)
+                while detection == 1:
 
-                detection = self.dynamic_thresholding(key, spiketimes, spikeshapes, spikeapexes, threshold_array)
-                round = round + 1
+                    print("Round number ", round, " for electrode ", key)
+
+                    # plot_rawdata_singlechannel(self.mcd_data[key], channelnumber=str(key), recursiveround=str(round), figpath=figpath)
+
+                    detection = self.dynamic_thresholding(key=key, spiketimes=spiketimes, spikeshapes=spikeshapes,
+                                                          spikeapexes=spikeapexes, threshold_array=threshold_array,
+                                                          round=str(round), figpath=figpath)
+
+                    round = round + 1
+
+        # plot_rawdata_singlechannel(self.mcd_data[key], channelnumber=str(key), recursiveround=str(round), figpath=figpath)
 
         print("Finished for electrode ", key)
 
-    def exclusion(self):
+    def exclusion(self, channel):
 
-        """ Remove electrodes from the RAW_NeuronalData object
+        """ Remove electrodes from the RAW_NeuronalData object, can be used with user input
 
             Arguments:
 
@@ -200,13 +235,39 @@ class RAW_NeuronalData:
                Updated RAW_NeuronalData object
             """
 
-        print("Please enter one channel to be excluded")
-        channel = int(input())
+        # print("Please enter one channel to be excluded")
+        # channel = int(input())
 
-        while channel != 0:
+        #while channel != 0:
 
-            del self.mcd_data[channel]
-            channel = input()
+        del self.mcd_data[channel]
+            #channel = input()
+
+        return self
+
+    def bandstop_resonator(self):
+
+        """ Creates a Notch filter with Q = 10, and fs = 50Hz and runs it through a RAW_NeuronalData object with
+        sampling rate of 25000 samples per second, 25000 Hz.
+
+                       Arguments:
+
+                           RAW_NeuronalData object
+
+                       Returns:
+
+                          Filtered RAW_NeuronalData object
+                       """
+
+        b, a = notch_bandstopresonator(f0=0.004, Q=10)
+
+        for key in self.mcd_data:
+
+            if key != 'ms':
+
+                if key != 'mock_spiketimes':
+
+                    self.mcd_data[key] = signal.filtfilt(b, a, self.mcd_data[key])
 
         return self
 
@@ -230,7 +291,9 @@ class RAW_NeuronalData:
 
             if key != 'ms':
 
-                self.mcd_data[key] = signal.filtfilt(b, a, self.mcd_data[key])
+                if key != 'mock_spiketimes':
+
+                    self.mcd_data[key] = signal.filtfilt(b, a, self.mcd_data[key])
 
         return self
 
@@ -303,14 +366,22 @@ class RAW_NeuronalData:
 
             if key != 'ms':
 
-                threshold_array[key] = list()
-                spiketimes[key] = list()
-                spikeshapes[key] = dict()
-                spikeapexes[key] = list()
+                if key != 'mock_spiketimes':
+
+                    threshold_array[key] = list()
+                    spiketimes[key] = list()
+                    spikeshapes[key] = dict()
+                    spikeapexes[key] = list()
 
         for key in self.mcd_data:  # Runs the actual detection per electrode #
 
-            self.electrode_spike_detection(key, spiketimes, spikeshapes, spikeapexes, threshold_array)
+            if key != 'ms':
+
+                if key != 'mock_spiketimes':
+
+                    self.electrode_spike_detection(key=key, spiketimes=spiketimes, spikeshapes=spikeshapes,
+                                                   spikeapexes=spikeapexes, threshold_array=threshold_array,
+                                                   figpath=figpath)
 
         finish = time.asctime(time.localtime(time.time()))
 
@@ -361,7 +432,7 @@ def butter_bandstop(lowcut, highcut, fs, order):
     low = lowcut / nyq
     high = highcut / nyq
 
-    b, a = signal.butter(order, [low, high], btype='bandstop')
+    b, a = signal.butter(N=order, Wn=[low, high], btype='bandstop')
 
     return b, a
 
@@ -384,11 +455,17 @@ def butter_bandstop_filter(data, lowcut, highcut, fs, order):
            Filtered data
         """
 
-    b, a = butter_bandstop(lowcut, highcut, fs, order=order)
+    b, a = butter_bandstop(lowcut=lowcut, highcut=highcut, fs=fs, order=order)
     y = signal.lfilter(b, a, data)
 
     return y
 
+
+def notch_bandstopresonator(f0, Q):
+
+    b, a = signal.iirnotch(w0=f0, Q=Q)
+
+    return b, a
 
 # ----------------------------------------------------------------------------------------------------------------- #
 
@@ -396,48 +473,122 @@ def butter_bandstop_filter(data, lowcut, highcut, fs, order):
 
 # ----------------------------------------------------------------------------------------------------------------- #
 
-def noise():
 
-    #  Generates channel noise using a Ornstein-Uhlenbeck process
+def create_mockdata(output_path, electrode):
 
-    duration = np.linspace(0, 231, 5792501)  # 231 seconds, sampling rate of 25 kHz, takes a while to run
-    N = len(duration)
-    noise = np.zeros(N)
-    h = duration[1] - duration[0]
-    tau = 0.5
-    Xrest = 0
-    Xthres = -15
-    noise[0] = Xrest
+    """ Creates mock data for a given electrode using the spike generator and the template provided
 
-    I = lambda t: 0.0
+             Arguments:
 
-    for i in range(N-1):
+              output_path(str): Location to save the results
+              electrode(str): Electrode number to generate the mock data for
 
-        noise[i + 1] = noise[i] - h*(noise[i] - Xrest)/tau + np.sqrt(h)*np.random.normal(scale=10.0) + I(duration)
+            Returns:
 
-    return duration, noise
+               Mock data as a RAW_NeuronalData object
+       """
+
+    uv_data = {}
+    time_array = {}
+    channelids = {}
+
+    channels = list()
+    channels.append(str(electrode))
+
+    fullname = output_path + "Mock_" + str(electrode) + ".txt"
+    file = open(fullname, "w+")
+
+    for electrode in channels:
+
+        channelids[electrode] = list()
+
+        channel_noise = noise()  # Creates noise for the channel
+
+        Threshold_noise = "Noise threshold for" + str(electrode) + "=" + str(channel_noise[2])
+
+        file.write(Threshold_noise)
+
+        spikes = exponential_spike_generator()  # Randomly generated spike times
+
+        time_array['mock_spiketimes'] = spikes
+
+        Mock_electrode_spiketimes = "Spike times for" + str(electrode) + "=" + str(spikes[0][0])
+
+        file.write(Mock_electrode_spiketimes)
+
+        Mock_electrode_detections = "Spike number for" + str(electrode) + "=" + str(spikes[1])
+
+        file.write(Mock_electrode_detections)
+
+        file.close()
+
+        template = [1.77083333333333, 1.04166666666667, 1.97916666666667, 2.81250000000000, 1.87500000000000, 1.56250000000000,
+                    2.70833333333333, 2.81250000000000, 3.12500000000000, 3.33333333333333, 2.50000000000000, 1.14583333333333,
+                    1.77083333333333, 2.50000000000000, 0.937500000000000, 0.729166666666667, 1.66666666666667, 2.500000000000,
+                    1.35416666666667, 1.97916666666667, 5.93750000000000, 12.5000000000000, 18.5416666666667, 18.4375000000000,
+                    4.16666666666667, -21.6666666666667, -39.7916666666667, -40, -31.4583333333333, -22.5000000000000,
+                    -17.2916666666667, -14.5833333333333, -10.8333333333333, -8.22916666666667, -6.77083333333333, -3.12500000,
+                    -2.18750000000000, -1.45833333333333, -0.937500000000000, 0.104166666666667, 3.02083333333333, 2.2916666667,
+                    0.416666666666667, 0.625000000000000, 2.91666666666667, 3.22916666666667, 3.75000000000000, 6.1458333333333,
+                    6.56250000000000, 6.97916666666667, 6.04166666666667, 5.41666666666667, 5.10416666666667, 5.10416666666667,
+                    6.66666666666667, 5.52083333333333, 3.54166666666667, 4.58333333333333, 3.43750000000000, 0.625000000000000,
+                    0.312500000000000, 2.29166666666667, 4.79166666666667, 2.81250000000000, 0.104166666666667, -0.208333333333,
+                    -0.833333333333333, -0.416666666666667, 2.08333333333333, 5.31250000000000, 5.10416666666667, 1.04166666667,
+                    -0.625000000000000, -0.104166666666667, 0.312500000000000]  # Spike shapes to be imposed
+
+        mock_data = impose_template(noise=channel_noise, spikes=spikes, template=template)
+
+        time_array[electrode] = mock_data[0]
+        uv_data[electrode] = mock_data[1]
+
+    raw_data = RAW_NeuronalData(uv_data=uv_data, input='RAWdata', time_array=time_array, channelids=channelids)
+
+    return raw_data
 
 
 def exponential_spike_generator():
 
+    """ Generates spike data using a simple exponential-like random generator
+
+
+          Returns:
+
+             Spike times and total spike number
+     """
+
     spikes = []
     num_cells = 1
 
-    # Generates spike data using a simple Poisson-like generator #
 
     for i in range(num_cells):
 
-        isi = np.random.exponential(size=300) # Number of spikes
+        isi = np.random.exponential(size=300)  # Number of spikes
         spiketime = np.cumsum(isi)
         spiketime = spiketime.astype('int')
+        spiketime = np.unique(spiketime)
         spikes.append(spiketime)
 
-        print("Generated mock spiketimes.")
+    spikenumber = len(spikes[0])  # List contains a single array
 
-    return spikes
+    print("Generated mock spiketimes.")
+
+    return spikes, spikenumber
 
 
 def impose_template(noise, spikes, template):
+
+    """ Adds a template of a biological spike to given positions of a noise voltage array
+
+           Arguments:
+
+            noise(array): Noise of the channel
+            spikes(array): Positions to add spike shapes
+            template(list): Hard-coded
+
+          Returns:
+
+             Output file
+     """
 
     print("Got into the impose function.")
 
@@ -462,6 +613,41 @@ def impose_template(noise, spikes, template):
                 imposed[position + voltage] = template[voltage]
 
     return noise[0], imposed
+
+
+def noise():
+
+    """ # Generates channel noise using a Ornstein-Uhlenbeck process
+
+
+         Returns:
+
+             Duration array, voltage noise array and the channel threshold of -5.5 STDs.
+
+           """
+
+    print("Generating noise...")
+
+    duration = np.linspace(0, 231, 5792501)  # 231 seconds, sampling rate of 25 kHz
+    N = len(duration)
+    noise = np.zeros(N)
+    h = duration[1] - duration[0]
+    tau = 0.5
+    Xrest = 0
+    Xthres = -15
+    noise[0] = Xrest
+
+    I = lambda t: 0.0
+
+    for i in range(N-1):
+
+        noise[i + 1] = noise[i] - h*(noise[i] - Xrest)/tau + np.sqrt(h)*np.random.normal(scale=10.0) + I(duration)
+
+    threshold = -5.5 * np.std(noise)
+
+    print("Gata. Threshold of ", threshold)
+
+    return duration, noise, threshold
 
 # ----------------------------------------------------------------------------------------------------------------- #
 
@@ -491,6 +677,7 @@ def dict_to_file(dict, filename, output_path):
     file.write(str(dict))
     file.close()
 
+
 # ----------------------------------------------------------------------------------------------------------------- #
 
 # Functions for data visualisation #
@@ -516,10 +703,11 @@ def plot_thresholds(figpath, MEA, threshold_array):
 
     for electrode in threshold_array.keys():
 
-        fig = plt.figure(dpi=300)
+        fig = plt.figure(dpi=500)
 
+        ax = sns.lineplot(data=np.array(threshold_array[str(electrode)]))
         ax = sns.scatterplot(data=np.array(threshold_array[str(electrode)]))
-        ax.set(title="MEA " + str(MEA) + "Electrode " + str(electrode))
+        ax.set(title="MEA " + str(MEA) + " electrode " + str(electrode))
         plt.ylabel("Voltage (uV)")
         plt.xlabel("Instant threshold")
 
@@ -544,20 +732,20 @@ def plot_rawdata_singlechannel(channeldata, channelnumber, recursiveround, figpa
 
           """
 
-    fig = plt.figure(dpi=300)
+    fig = plt.figure(dpi=150)
 
     plt.plot(channeldata)
 
-    plt.ylim(bottom=-80, top=30)
+    plt.ylim(bottom=-70, top=30)
     plt.ylabel("Voltage (uV)")
     plt.xlim(left=0, right=6000000)
     plt.xlabel("Raw data points")
 
-    plt.savefig(figpath + str(channelnumber) + "O3_r_" + str(recursiveround) + ".png", format='png')
+    plt.savefig(figpath + "Elec_" + str(channelnumber) + "_rd_" + str(recursiveround) + "_.png", format='png')
     plt.close(fig)
 
 
-def plot_spike(voltage, occurrence, figpath):
+def plot_spike(voltage, occurrence, figpath, electrode, round):
 
     """ Plots a detected spike
 
@@ -573,20 +761,34 @@ def plot_spike(voltage, occurrence, figpath):
 
           """
 
-    fig = plt.figure(dpi=300)
+    fig = plt.figure(dpi=500)
 
-    plt.plot(voltage)
+    ax = sns.lineplot(data=voltage)
+    ax = sns.scatterplot(data=voltage)
 
-    plt.ylim(bottom=-80, top=30)
+    plt.title("Detected spike number " + str(occurrence))
+    plt.ylim(bottom=-70, top=30)
     plt.ylabel("Voltage (uV)")
     plt.xlim(left=0, right=75)
     plt.xlabel("Data points")
 
-    plt.savefig(figpath + str(occurrence) + "_spike_.png", format='png')
+    plt.savefig(figpath + "Elec_" + str(electrode) + "_rd_" + str(round) + "_spike_" + str(occurrence) + ".png", format='png')
     plt.close(fig)
 
 
 def visualise_spikes_generated(output_path):
+
+    """ Plots spike times generated with the custom exponential spike generator
+
+             Arguments:
+
+                 output_path(str): Full path of the output file
+
+           Returns:
+
+               Saved plot.
+
+             """
 
     spikes = exponential_spike_generator()
 
@@ -597,7 +799,7 @@ def visualise_spikes_generated(output_path):
     filename = 'spikes'
     cells = [1]
 
-    for cell in range(len(spikes)):
+    for cell in range(len(spikes[0])):
 
         plt.plot(spikes[cell], np.repeat(cells[cell], len(spikes[cell])), marker='o')
 
@@ -610,6 +812,20 @@ def visualise_spikes_generated(output_path):
 
 
 def visualise_noise(output_path, noise, filename):
+
+    """ Plots voltages generated with the custom noise generator
+
+         Arguments:
+
+             output_path(str): Full path of the output file
+             noise(array): voltage array of the noise
+             filename(str):  Filename of the output file
+
+       Returns:
+
+           Saved plot.
+
+         """
 
     sns.set_palette(sns.dark_palette("purple"))
 
