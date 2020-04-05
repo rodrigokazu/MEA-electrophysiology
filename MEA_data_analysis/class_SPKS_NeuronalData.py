@@ -1,14 +1,14 @@
 import networkx as nx
 import numpy as np
 import matplotlib.pyplot as plt
-import pprint as pp
+import pandas as pd
 import seaborn as sns
 import scipy.signal as signal
 import scipy.io
 from class_RAW_NeuronalData import *
 
 #warnings.filterwarnings("ignore", category=matplotlib.cbook.mplDeprecation)  # Ignores pointless matplotlib warnings
-plt.switch_backend('agg')
+#plt.switch_backend('agg')
 plt.rcParams.update({'font.size': 5})
 
 
@@ -138,18 +138,20 @@ class SPKS_NeuronalData:
 
             if keys != 'duration':
 
-                binned_channels[keys] = np.zeros(bin_count)  # Adds zero to each position of the binned array
+                if keys != 'mock_spiketimes':
 
-                for binning in range(0, len(self.spiketimes[keys])):
+                    binned_channels[keys] = np.empty(bin_count)  # Adds zero to each position of the binned array
 
-                    for bin_comparison in range(1, bin_count):
+                    for binning in range(0, len(self.spiketimes[keys])):
 
-                        current_bin = bin_comparison * 1000
-                        last_bin = current_bin - 1000
+                        for bin_comparison in range(1, bin_count):
 
-                        if last_bin < self.spiketimes[keys][binning] < current_bin:
+                            current_bin = bin_comparison * 25000
+                            last_bin = current_bin - 25000
 
-                            binned_channels[keys][bin_comparison] = binned_channels[keys][bin_comparison] + 1
+                            if last_bin < self.spiketimes[keys][binning] < current_bin:
+
+                                binned_channels[keys][bin_comparison] = binned_channels[keys][bin_comparison] + 1
 
         return binned_channels
 
@@ -172,20 +174,22 @@ class SPKS_NeuronalData:
         # Compute the record duration to seconds from ms #
 
         duration_ms = self.spiketimes['duration']
-        duration_s = duration_ms / 1000
+        duration_s = duration_ms / 25000
 
         for key in self.spiketimes.keys():
 
             if key != 'duration':
 
-                 # Compute the total spike number per electrode #
+                if key != 'mock_spiketimes':
 
-                spike_number = len(self.spiketimes[key])
+                    # Compute the total spike number per electrode
 
-                # Compute and store the firing rates #
+                    spike_number = len(self.spiketimes[key])
 
-                electrode_fr_s = spike_number / duration_s
-                firingrates[key] = electrode_fr_s
+                    # Compute and store the firing rates #
+
+                    electrode_fr_s = spike_number / duration_s
+                    firingrates[key] = electrode_fr_s
 
         return firingrates
 
@@ -243,6 +247,8 @@ class SPKS_NeuronalData:
         file.write(str(overall_detections))
 
         file.close()
+
+        return all_detections
 
     def burstdranias_100ms(self, MEA):
 
@@ -462,17 +468,14 @@ class SPKS_NeuronalData:
                     electrodecount[electrode] = dict()
                     electrodecount[electrode] = len(burstprofile[electrode])  # Computing the counts
 
-        #ax = sns.distplot(burstprofile[electrode], color='y')
-        #ax.set(title='MEA ' + MEA)
-
-        return electrodecount
+        return burstcount
 
     def get_bin_number(self):
 
         # Each bin has one second
 
         duration_ms = self.spiketimes['duration']
-        bins = duration_ms / 1000
+        bins = duration_ms / 25000
 
         return bins
 
@@ -513,16 +516,15 @@ class SPKS_NeuronalData:
 
                             second_array_centered = second_array - second_array.mean()  # Centers the array
 
-                            print(' \n\n Correlating channel ', key, ', which has', len(first_array), 'spikes with channel',
-                                  key_2, 'that has', len(second_array), 'spikes.')
+                            print(' \n\n Correlating channel ', key, 'with channel', key_2, '.')
 
                             crosscovariance_pair = signal.correlate(first_array_centered, second_array_centered)
 
-                            threshold = 4 * np.average(crosscovariance_pair)
+                            threshold = 4 * np.mean(crosscovariance_pair)
 
                             if np.amax(crosscovariance_pair) > threshold: # This finds peaks (Downes 2012)
 
-                                print('Channel pair has a peak of', np.amax(crosscovariance_pair))
+                                print('Channel pair has a peak of ', np.amax(crosscovariance_pair), " edge added.")
 
                                 G.add_edge(int(key), int(key_2))
 
@@ -555,6 +557,13 @@ class SPKS_NeuronalData:
 
         draw_and_save_graph(G=G, output_path=output_path, filename=filename)
 
+    def active_electrodes(self):
+
+        # Data has to come from RAW_NeuronalData. If MATLAB, subtract one instead.
+
+        active = len(self.spiketimes.keys()) - 1
+
+        return active
 
 # ----------------------------------------------------------------------------------------------------------------- #
 
@@ -649,6 +658,10 @@ class SPKS_NeuronalData:
 
                 continue
 
+            if electrode == 'mock_spiketimes':  # First position on the spiketimes dictionary is the duration of recording #
+
+                continue
+
             intervals[electrode] = list()  # Each list stores the ISIs of a given electrode
 
             while final_position < len(self.spiketimes[electrode]):  # Keeps the code into the arrays limit #
@@ -668,17 +681,26 @@ class SPKS_NeuronalData:
 
                 continue
 
-            grid_plot.add_subplot(8, 8, plotnumber)
+            grid_plot.add_subplot(7, 7, plotnumber)
 
-            ax = sns.distplot(intervals[electrode], color='y')
-            ax.set(title=electrode, xscale="log", yscale="log") 
+            sns.set_context("paper")
+            ax = sns.distplot(intervals[electrode], color='k', norm_hist=False, kde=False)
+            ax.set(title=electrode)
+                   #xscale="log", xlim=[10**3, 10**5], yscale="log", ylim=[10**-6, 10**-3])
 
             plotnumber = plotnumber + 1
 
-        grid_plot.suptitle("MEA "+MEA, fontsize=16)
+        grid_plot.suptitle("MEA "+MEA, fontsize=10)
         plt.subplots_adjust(hspace=1, wspace=0.65)
         plt.savefig(figpath + str(MEA) + "_hist_ISI.png", format='png')
         plt.close(grid_plot)
+
+        electrodenumber = self.active_electrodes()
+
+        overallISI = np.array(overallISI)
+        averageISI = overallISI.mean()
+
+        return averageISI
 
     def IBI_visualisation(self, MEA):
 
@@ -697,6 +719,50 @@ class SPKS_NeuronalData:
             plt.ylim(0, 50)
             plt.xlabel("Inverval number")
 
+    def visualise_rasters(self, figpath, MEA):
+
+        """ Plots a raster for the spiketimes of each electrode of a SPKS_NeuronalData object
+
+                    Arguments:
+
+                        SPKS_NeuronalData object
+                        MEA(str): MEA number for plot title
+                        figpath(str): Full path of the location to save the output figure
+
+                    Returns:
+
+                       Raster plot per MEA
+                    """
+
+        fig = plt.figure(dpi=500)
+        ax1 = fig.add_subplot(111)
+
+        list_of_lists = list()
+
+        for channel in self.spiketimes.keys():
+
+            if channel == 'duration':
+
+                continue
+
+            list_of_lists.append(self.spiketimes[channel])
+
+            #plt.plot(self.spiketimes[channel], np.repeat(int(channel), len(self.spiketimes[channel])), marker=2,
+            #         label=channel)
+
+        array_of_lists=np.array(list_of_lists)
+        ax1.eventplot(positions=array_of_lists, linelengths=0.5)
+        plt.title(MEA)
+        #plt.legend(fontsize=4, loc='upper left')
+        plt.ticklabel_format(axis="x", style="sci", scilimits=(0,0))
+        plt.ylabel('Electrode recorded')
+        plt.xlim(0, 250000)
+        plt.xlabel("Spike time (ms)")
+
+        savepath = figpath +  str(MEA) + "\\"
+
+        plt.savefig(savepath+ str(MEA) + "_spiketimes_raster.png", format='png')
+        #plt.close(fig)
 # ----------------------------------------------------------------------------------------------------------------- #
 
 # Functions for data visualisation #
@@ -722,12 +788,12 @@ def FR_perelectrode_barplot(figpath, firingrates, MEA):
 
     if len(firingrates.keys()) > 1:
 
-        fig = plt.figure(dpi=300)
+        fig = plt.figure(dpi=500)
 
-        plt.bar(*zip(*sorted(firingrates.items())), color='y')
+        plt.bar(*zip(*sorted(firingrates.items())), color='k')
         plt.xlabel('Electrode')
         plt.title('MEA ' + MEA + ' firing rates')
-        plt.ylim(0, 0.1)
+        plt.ylim(0, 5)
 
         plt.savefig(figpath + str(MEA) + "_FR_Hz.png", format='png')
         plt.close(fig)
@@ -810,6 +876,7 @@ def draw_and_save_graph(G, output_path, filename):
 
 # ----------------------------------------------------------------------------------------------------------------- #
 
+
 def write_FRs(MEA, FR, filename, output_path):
 
     fullname = output_path + filename + ".txt"
@@ -837,5 +904,9 @@ def dict_to_file(dict, filename, output_path):
 
     fullname = output_path + filename + ".txt"
     file = open(fullname, "w+")
-    file.write(str(dict))
+
+    for keys in dict.keys():
+
+        file.write(str(keys) + " " + str(dict[keys])+"\n")
+
     file.close()
