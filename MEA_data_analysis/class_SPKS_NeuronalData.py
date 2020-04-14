@@ -8,8 +8,8 @@ import scipy.io
 from class_RAW_NeuronalData import *
 
 #warnings.filterwarnings("ignore", category=matplotlib.cbook.mplDeprecation)  # Ignores pointless matplotlib warnings
-#plt.switch_backend('agg')
-plt.rcParams.update({'font.size': 5})
+plt.switch_backend('agg')
+plt.rcParams.update({'font.size': 4})
 
 
 class SPKS_NeuronalData:
@@ -127,33 +127,6 @@ class SPKS_NeuronalData:
 # Methods for electrophysiological calculations #
 
 # ----------------------------------------------------------------------------------------------------------------- #
-
-    def bin_the_spikes(self, bin_count):
-
-        bin_count = int(bin_count)
-
-        binned_channels = {}  # Dictionary that will store the binned arrays
-
-        for keys in self.spiketimes.keys():
-
-            if keys != 'duration':
-
-                if keys != 'mock_spiketimes':
-
-                    binned_channels[keys] = np.empty(bin_count)  # Adds zero to each position of the binned array
-
-                    for binning in range(0, len(self.spiketimes[keys])):
-
-                        for bin_comparison in range(1, bin_count):
-
-                            current_bin = bin_comparison * 25000
-                            last_bin = current_bin - 25000
-
-                            if last_bin < self.spiketimes[keys][binning] < current_bin:
-
-                                binned_channels[keys][bin_comparison] = binned_channels[keys][bin_comparison] + 1
-
-        return binned_channels
 
     def electrode_FR(self):
 
@@ -470,77 +443,6 @@ class SPKS_NeuronalData:
 
         return burstcount
 
-    def get_bin_number(self):
-
-        # Each bin has one second
-
-        duration_ms = self.spiketimes['duration']
-        bins = duration_ms / 25000
-
-        return bins
-
-    def cn_xcov_analysis(self, G, binned_channels, filename, output_path):
-
-        dict_xcov_peak_and_threshold_eachpair = dict()
-
-        electrodes = list()
-
-        for keys in self.spiketimes.keys():
-
-            if keys != 'duration':
-
-                electrodes.append(keys)
-
-        for xcov in range(0, len(electrodes)):
-
-            key = electrodes[xcov]
-
-            if key != 'duration':
-
-                first_array = binned_channels[key]
-                first_array_centered = first_array - first_array.mean()  # Centers the array
-
-                for xcov_2 in range(xcov + 1, len(electrodes)):
-
-                    if xcov_2 == len(electrodes):
-
-                       continue
-
-                    else:
-
-                        key_2 = electrodes[xcov_2]
-
-                        if key_2 != 'duration':
-
-                            second_array = binned_channels[key_2]
-
-                            second_array_centered = second_array - second_array.mean()  # Centers the array
-
-                            print(' \n\n Correlating channel ', key, 'with channel', key_2, '.')
-
-                            crosscovariance_pair = signal.correlate(first_array_centered, second_array_centered)
-
-                            threshold = 4 * np.mean(crosscovariance_pair)
-
-                            if np.amax(crosscovariance_pair) > threshold: # This finds peaks (Downes 2012)
-
-                                print('Channel pair has a peak of ', np.amax(crosscovariance_pair), " edge added.")
-
-                                G.add_edge(int(key), int(key_2))
-
-                        key = str(key)  # Converts keys into strings for writing
-                        key_2 = str(key_2)
-
-                        xcov_key = key + '_' + key_2  # Create a node pair string
-
-                        dict_xcov_peak_and_threshold_eachpair[xcov_key] = \
-                            ['Peak:', np.amax(crosscovariance_pair),
-                             'Threshold:', threshold]
-
-                        dict_to_file(dict=dict_xcov_peak_and_threshold_eachpair, filename=filename,
-                                     output_path=output_path)
-        return G
-
     def complete_cn_analysis(self, filename, output_path):
 
         G = generateMEA()
@@ -561,7 +463,7 @@ class SPKS_NeuronalData:
 
         # Data has to come from RAW_NeuronalData. If MATLAB, subtract one instead.
 
-        active = len(self.spiketimes.keys()) - 1
+        active = len(self.spiketimes.keys()) - 1  # Removes the dictionary entry called 'duration'.
 
         return active
 
@@ -570,6 +472,115 @@ class SPKS_NeuronalData:
 # Methods for CN analysis #
 
 # ----------------------------------------------------------------------------------------------------------------- #
+
+    def bin_the_spikes(self, bin_count):
+
+        bin_count = int(bin_count)
+
+        binned_channels = {}  # Dictionary that will store the binned arrays
+
+        for keys in self.spiketimes.keys():
+
+            if keys != 'duration':
+
+                binned_channels[keys] = np.empty(bin_count)  # Adds zero to each position of the binned array
+
+                for bin_comparison in range(1, bin_count):
+
+                    binned_channels[keys][bin_comparison] = 0
+
+                for binning in range(0, len(self.spiketimes[keys])):
+
+                    for bin_comparison in range(1, bin_count):
+
+                        current_bin = bin_comparison * 2500  # Binning per 100ms, sampling rate of 25000/sec
+                        last_bin = current_bin - 2500
+
+                        if last_bin < self.spiketimes[keys][binning] < current_bin:
+
+                            binned_channels[keys][bin_comparison] = binned_channels[keys][bin_comparison] + 1
+
+        return binned_channels
+
+    def get_bin_number(self):
+
+        # Each bin has one second
+
+        duration_ms = self.spiketimes['duration']
+        bins = duration_ms / 2500
+
+        return bins
+
+    def cn_xcov_analysis(self, G, binned_channels, filename, output_path):
+
+        """Computes the firing rates in Hz for a whole SPKS_NeuronalData object (MEA recording)
+
+                Arguments:
+
+                    G(graph) : Graph created with NetworkX in the shape of an 8x8 MEA
+                    binned_channels : Binned spiketimes of the MEA to be analysed
+                    filename: Output file name
+                    output_path: Output file path
+
+                Returns:
+
+                   Edges added to the graph based on a cross-covariance analysis (see Downes 2012)
+
+                """
+
+        dict_xcov_peak_and_threshold_eachpair = dict()
+
+        electrodes = list()
+
+        for keys in self.spiketimes.keys():
+
+            if keys != 'duration':
+
+                electrodes.append(keys)  # Acquiring all the active electrodes
+
+        for xcov in range(0, len(electrodes)):
+
+            key = electrodes[xcov]  # First channel in the comparison
+
+            first_array = binned_channels[key]
+            first_array_centered = first_array - first_array.mean()  # Centers the array (Demeans them)
+
+            for xcov_2 in range(xcov + 1, len(electrodes)-1):
+
+                key_2 = electrodes[xcov_2]  # Second channel in the comparison
+
+                second_array = binned_channels[key_2]
+
+                second_array_centered = second_array - second_array.mean()  # Centers the array
+
+                print(' \n\n Correlating channel ', key, 'with channel', key_2, '.')
+
+                # Signal correlate on demeaned arrays works as MATLAB'S xcov() #
+
+                crosscovariance_pair = signal.correlate(first_array_centered, second_array_centered, mode='same')
+
+                threshold = 100 * np.mean(crosscovariance_pair)  # Threshold to add an edge
+
+                if np.amax(crosscovariance_pair) > threshold:  # This finds peaks (as in Downes 2012)
+
+                    print('Channel pair has a peak of ', np.amax(crosscovariance_pair), " edge added.")
+
+                    G.add_edge(int(key), int(key_2))
+
+                key = str(key)  # Converts keys into strings for writing
+                key_2 = str(key_2)
+
+                xcov_key = key + '_' + key_2  # Create a node pair string
+
+                dict_xcov_peak_and_threshold_eachpair[xcov_key] = \
+                    ['Peak:', np.amax(crosscovariance_pair),
+                     'Threshold:', threshold]
+
+        # Writing the output to a file
+
+        dict_to_file(dict=dict_xcov_peak_and_threshold_eachpair, filename=filename,
+                     output_path=output_path)
+        return G
 
 # ----------------------------------------------------------------------------------------------------------------- #
 
@@ -763,6 +774,74 @@ class SPKS_NeuronalData:
 
         plt.savefig(savepath+ str(MEA) + "_spiketimes_raster.png", format='png')
         #plt.close(fig)
+
+# ----------------------------------------------------------------------------------------------------------------- #
+
+# Functions for CN analysis #
+
+# ----------------------------------------------------------------------------------------------------------------- #
+
+
+def generateMEA():
+
+        """
+        Adds the 8x8 MEA nodes to a graph G
+
+        """
+
+        G = nx.Graph()  # This generates your network using NetworkX
+
+        for node_ID in range(1, 61):
+
+            if node_ID < 7:
+                y = 8 - node_ID
+                G.add_node(node_ID + 11, pos=(1, y))
+            else:
+                pass
+            if 6 < node_ID < 15:
+                y = 15 - node_ID
+                G.add_node(node_ID + 14, pos=(2, y))
+            else:
+                pass
+
+            if 14 < node_ID < 23:
+                y = 23 - node_ID
+                G.add_node(node_ID + 16, pos=(3, y))
+            else:
+                pass
+
+            if 22 < node_ID < 31:
+                y = 31 - node_ID
+                G.add_node(node_ID + 18, pos=(4, y))
+            else:
+                pass
+
+            if 30 < node_ID < 39:
+                y = 39 - node_ID
+                G.add_node(node_ID + 20, pos=(5, y))
+            else:
+                pass
+
+            if 38 < node_ID < 47:
+                y = 47 - node_ID
+                G.add_node(node_ID + 22, pos=(6, y))
+            else:
+                pass
+
+            if 46 < node_ID < 55:
+                y = 55 - node_ID
+                G.add_node(node_ID + 24, pos=(7, y))
+            else:
+                pass
+
+            if 54 < node_ID < 61:
+                y = 62 - node_ID
+                G.add_node(node_ID + 27, pos=(8, y))
+            else:
+                pass
+
+        return G
+
 # ----------------------------------------------------------------------------------------------------------------- #
 
 # Functions for data visualisation #
@@ -792,71 +871,13 @@ def FR_perelectrode_barplot(figpath, firingrates, MEA):
 
         plt.bar(*zip(*sorted(firingrates.items())), color='k')
         plt.xlabel('Electrode')
+        plt.ylabel('Hz')
         plt.title('MEA ' + MEA + ' firing rates')
-        plt.ylim(0, 5)
+        plt.xticks(rotation=55)
+        plt.ylim(0, 20)
 
         plt.savefig(figpath + str(MEA) + "_FR_Hz.png", format='png')
         plt.close(fig)
-
-
-def generateMEA():
-
-    """
-    Adds the 8x8 MEA nodes to a graph G
-    """
-
-    G = nx.Graph()  # This generates your network using NetworkX
-
-    for node_ID in range(1, 61):
-
-        if node_ID < 7:
-            y = 8 - node_ID
-            G.add_node(node_ID + 11, pos=(1, y))
-        else:
-            pass
-        if 6 < node_ID < 15:
-            y = 15 - node_ID
-            G.add_node(node_ID + 14, pos=(2, y))
-        else:
-            pass
-
-        if 14 < node_ID < 23:
-            y = 23 - node_ID
-            G.add_node(node_ID + 16, pos=(3, y))
-        else:
-            pass
-
-        if 22 < node_ID < 31:
-            y = 31 - node_ID
-            G.add_node(node_ID + 18, pos=(4, y))
-        else:
-            pass
-
-        if 30 < node_ID < 39:
-            y = 39 - node_ID
-            G.add_node(node_ID + 20, pos=(5, y))
-        else:
-            pass
-
-        if 38 < node_ID < 47:
-            y = 47 - node_ID
-            G.add_node(node_ID + 22, pos=(6, y))
-        else:
-            pass
-
-        if 46 < node_ID < 55:
-            y = 55 - node_ID
-            G.add_node(node_ID + 24, pos=(7, y))
-        else:
-            pass
-
-        if 54 < node_ID < 61:
-            y = 62 - node_ID
-            G.add_node(node_ID + 27, pos=(8, y))
-        else:
-            pass
-
-    return G
 
 
 def draw_and_save_graph(G, output_path, filename):
