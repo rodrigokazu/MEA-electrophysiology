@@ -1,7 +1,6 @@
 import networkx as nx
 import numpy as np
 import matplotlib.pyplot as plt
-import pandas as pd
 import seaborn as sns
 import scipy.signal as signal
 import scipy.io
@@ -28,7 +27,7 @@ class SPKS_NeuronalData:
                    spiketimes if the source is "RAWdata".
                    shapedata(str or dict): path to the *.mat file containing the spike shapes or dictionary with
                    spikeshapes if the source is "RAWdata".
-                   duration(int): Record duration is the source is "RAWdata"
+                   duration(int): Record duration if the source is "RAWdata"
                    time_array (str): path to the *.mat file containing the recorded timestamps in ms (MATLAB only)
                    channelids (str): path to the *.mat file containing the recorded electrode numbers (MATLAB only)
 
@@ -99,28 +98,27 @@ class SPKS_NeuronalData:
 
                         self.spikeshapes[channel] = shapedata[channel]
 
-    def exclusion(self):
+    def exclusion(self, channel):
 
         """ Remove electrodes from the RAW_NeuronalData object
 
             Arguments:
 
                 SPKS_NeuronalData object
+                channel(list): List of channels to be excluded
 
             Returns:
 
                Updated SPKS_NeuronalData object
             """
 
-        print("Please enter one channel to be excluded (enter zero to skip to the next MEA recording) from: \n ", self.spiketimes.keys())
+        for electrodes in channel:
 
-        channel = input()
+            if str(electrodes) in self.spiketimes:
 
-        while channel != '0':
+                del self.spiketimes[str(electrodes)]
+                del self.spikeshapes[str(electrodes)]
 
-            del self.spiketimes[str(channel)]
-            del self.spikeshapes[str(channel)]
-            channel = input()
 
 # ----------------------------------------------------------------------------------------------------------------- #
 
@@ -443,7 +441,7 @@ class SPKS_NeuronalData:
 
         return burstcount
 
-    def complete_cn_analysis(self, filename, output_path):
+    def complete_cn_analysis(self, filename, output_path, MEA):
 
         G = generateMEA()
 
@@ -457,7 +455,7 @@ class SPKS_NeuronalData:
 
         G = self.cn_xcov_analysis(G=G, binned_channels=binned_channels, filename=filename, output_path=output_path)
 
-        draw_and_save_graph(G=G, output_path=output_path, filename=filename)
+        draw_and_save_graph(G=G, output_path=output_path, filename=filename, MEA=MEA, threshold=50)
 
     def active_electrodes(self):
 
@@ -559,7 +557,7 @@ class SPKS_NeuronalData:
 
                 crosscovariance_pair = signal.correlate(first_array_centered, second_array_centered, mode='same')
 
-                threshold = 100 * np.mean(crosscovariance_pair)  # Threshold to add an edge
+                threshold = 50 * np.mean(crosscovariance_pair)  # Threshold to add an edge
 
                 if np.amax(crosscovariance_pair) > threshold:  # This finds peaks (as in Downes 2012)
 
@@ -697,7 +695,7 @@ class SPKS_NeuronalData:
             sns.set_context("paper")
             ax = sns.distplot(intervals[electrode], color='k', norm_hist=False, kde=False)
             ax.set(title=electrode)
-                   #xscale="log", xlim=[10**3, 10**5], yscale="log", ylim=[10**-6, 10**-3])
+            #xscale="log", xlim=[10**3, 10**5], yscale="log", ylim=[10**-6, 10**-3])
 
             plotnumber = plotnumber + 1
 
@@ -708,10 +706,22 @@ class SPKS_NeuronalData:
 
         electrodenumber = self.active_electrodes()
 
+        MEAplot = plt.figure(dpi=500)
+
+        mea_ISI = list()
+        mea_ISI = overallISI
         overallISI = np.array(overallISI)
         averageISI = overallISI.mean()
 
-        return averageISI
+        sns.set_context("paper")
+        ax2 = sns.distplot(overallISI, color='k', norm_hist=False, kde=False)
+        ax2.set(title=MEA, yscale="log", xlim=[-1000, 115000], ylim=[10**0, 10**5], xlabel="Interspike Interval",
+                ylabel="Occurence")
+
+        plt.savefig(figpath + str(MEA) + "_overall_ISI.png", format='png')
+        plt.close(MEAplot)
+
+        return mea_ISI, averageISI
 
     def IBI_visualisation(self, MEA):
 
@@ -849,6 +859,18 @@ def generateMEA():
 # ----------------------------------------------------------------------------------------------------------------- #
 
 
+def draw_and_save_graph(G, output_path, filename, threshold, MEA):
+
+    fig = plt.figure(dpi=500)
+
+    positions = nx.get_node_attributes(G, 'pos')  # Gets the positions of each node for the final plot
+    nx.draw_networkx(G, positions, node_size=500, node_color='white', edgelist=G.edges())  # Drawing function
+    plt.title('MEA_' + str(MEA) + '_threshold_' + str(threshold))
+    plt.savefig(output_path + filename + ".png", format='png')
+    plt.close(fig)
+
+    nx.write_gml(G, output_path + filename + ".gml")  # Exporting graph for further analysis
+
 def FR_perelectrode_barplot(figpath, firingrates, MEA):
 
     """ Computes the firing rates in Hz for all electrodes of a SPKS_NeuronalData object
@@ -870,8 +892,8 @@ def FR_perelectrode_barplot(figpath, firingrates, MEA):
         fig = plt.figure(dpi=500)
 
         plt.bar(*zip(*sorted(firingrates.items())), color='k')
-        plt.xlabel('Electrode')
-        plt.ylabel('Hz')
+        plt.xlabel('Electrode number')
+        plt.ylabel('Firing rates (Hz)')
         plt.title('MEA ' + MEA + ' firing rates')
         plt.xticks(rotation=55)
         plt.ylim(0, 20)
@@ -879,17 +901,17 @@ def FR_perelectrode_barplot(figpath, firingrates, MEA):
         plt.savefig(figpath + str(MEA) + "_FR_Hz.png", format='png')
         plt.close(fig)
 
+def DIV_ISI_histogram(filename, DIV, figpath, ISIlist):
 
-def draw_and_save_graph(G, output_path, filename):
+    DIVplot = plt.figure(dpi=500)
 
-    fig = plt.figure(dpi=500)
+    sns.set_context("paper")
+    ax2 = sns.distplot(ISIlist, color='k', norm_hist=False, kde=False, bins=230)
+    ax2.set(title=str(DIV), yscale="log", xlim=[-1000, 115000], ylim=[10 ** 0, 10 ** 5], xlabel="Interspike Interval",
+            ylabel="Occurence")
 
-    positions = nx.get_node_attributes(G, 'pos')  # Gets the positions of each node for the final plot
-    nx.draw_networkx(G, positions, node_size=500, node_color='white', edgelist=G.edges())  # Drawing function
-    nx.write_gml(G, output_path + filename + ".gml")  # Exporting graph for further analysis
-
-    plt.savefig(output_path + filename + ".png", format='png')
-    plt.close(fig)
+    plt.savefig(figpath + str(DIV) + filename + "_ISI.png", format='png')
+    plt.close(DIVplot)
 
 # ----------------------------------------------------------------------------------------------------------------- #
 
