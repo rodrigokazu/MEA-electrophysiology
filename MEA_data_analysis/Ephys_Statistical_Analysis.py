@@ -384,7 +384,7 @@ active_cultures(cultures_path=Ncultures_overtime_xlsx, filename="Over_time_", ti
                 outputpath=Ephys_path, scaling=2)
 
 
-# Creating the active electrodes plots without stats #
+# Creating the active electrodes plots with stats #
 
 active_electrodes_comparison(DIVs_df=DIVs_df, filename='Recur_', outputpath=Ephys_path, scaling=2,
                              title=" for all cultures.")
@@ -402,7 +402,7 @@ active_electrodes_comparison(DIVs_df=High_df, filename='High-density_', outputpa
 
 # active_electrodes_comparison(DIVs_df=DIVs_MCdf, filename='MC', outputpath=outputpath)
 
-# Creating the Firing Rates (Hz) plots without stats #
+# Creating the Firing Rates (Hz) plots with stats #
 
 FR_comparison(DIVs_df=DIVs_df, filename='Recur_', offset=0.1, outputpath=Ephys_path, title=" for all cultures.",
               scaling=1, ymax=20)
@@ -416,7 +416,7 @@ FR_comparison(DIVs_df=Mid_df, filename='Mid-density_', offset=0.3, outputpath=ou
 FR_comparison(DIVs_df=High_df, filename='High-density_', offset=0.5, outputpath=outputpath,
               title=" for high-density cultures.", scaling=1.75, ymax=5)
 
-# Creating the Burst count plots without stats #
+# Creating the Burst count plots with stats #
 
 burst_comparison(DIVs_df=DIVs_df, filename='Recur_', outputpath=Ephys_path, title=" for all cultures.", ymax=100)
 
