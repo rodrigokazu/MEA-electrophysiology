@@ -1,29 +1,37 @@
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import seaborn as sns
-#from statannot import add_stat_annotation
+import scipy.stats as stats
+import io
+from statsmodels.stats.libqsturng import psturng
+from statsmodels.stats.multicomp import pairwise_tukeyhsd, MultiComparison
+from statannot import add_stat_annotation
+
+#plt.rc('xtick', labelsize=4)
+plt.rcParams.update({'font.size': 14})
 
 # Function definitions #
 
 
-def active_cultures(cultures_path, filename, outputpath, ymax):
+def active_cultures(cultures_path, filename, outputpath, scaling, title, ymax):
 
     CultureNumber_df = pd.read_excel(cultures_path)
 
     CultureNumber_df = CultureNumber_df.transpose()
 
-    fig = plt.figure(dpi=700)
+    fig = plt.figure(dpi=500)
 
     sns.set_context("talk")
-    sns.set(rc={'figure.figsize': (10, 10)})
+    sns.set(rc={'figure.figsize': (10, 10)},  font_scale=scaling)
     ax = sns.barplot(data=CultureNumber_df, palette='cividis')
     # ax = sns.swarmplot(data=CultureNumber_df, palette='Greys_r')
-    ax.set(title="Percentage of active cultures per condition", ylabel="Active cultures", ylim=[0, ymax])
+    ax.set(title="Percentage of active cultures per" + title, ylabel="Percentage of active cultures", ylim=[0, ymax])
 
     plt.savefig(outputpath + filename + "active_cultures_comparison.png", format='png')
 
 
-def active_electrodes_comparison(DIVs_df, filename, outputpath, title):
+def active_electrodes_comparison(DIVs_df, filename, outputpath, scaling, title):
 
     active_electrodes = pd.DataFrame()
 
@@ -31,13 +39,21 @@ def active_electrodes_comparison(DIVs_df, filename, outputpath, title):
 
         active_electrodes[DIV] = DIVs_df[DIV]['Individual_Active_Elecs']
 
+    pvalues = oneway_ANOVA_plusTukeyHSD(DIVs_dataframe=active_electrodes, dropzero='y',
+                                        file_name=filename+"Elec_comparison", outputpath=outputpath)
+
     fig = plt.figure(dpi=700)
 
     sns.set_context("talk")
-    sns.set(rc={'figure.figsize': (10, 10)})
+    sns.set(rc={'figure.figsize': (10, 10)},  font_scale=scaling)
     ax = sns.barplot(data=active_electrodes, palette='cividis')
     ax = sns.swarmplot(data=active_electrodes, palette='Greys_r')
-    ax.set(title="Number of active electrodes over time" + title, ylabel="Active electrodes", ylim=[-0.1, 35])
+
+    add_stat_annotation(ax, data=active_electrodes, text_format='star', loc='inside', verbose=2, linewidth=3,
+                        box_pairs=[("DIV14", "DIV21"), ("DIV14", "DIV7"), ("DIV21", "DIV7")], perform_stat_test=False,
+                        test=None, line_offset=0.3, line_offset_to_box=0.3, pvalues=pvalues)
+
+    ax.set(title="Number of active electrodes over time" + title, ylabel="Active electrodes", ylim=[-0.1, 60])
 
     plt.savefig(outputpath + filename + "active_electrodes_comparison.png", format='png')
 
@@ -50,12 +66,17 @@ def burst_comparison(DIVs_df, filename, outputpath, title, ymax):
 
         active_electrodes[DIV] = DIVs_df[DIV]['Individual_Burst_Counts']
 
+    pvalues = oneway_ANOVA_plusTukeyHSD(DIVs_dataframe=active_electrodes, dropzero='n', file_name=filename+"Burst_comparison", outputpath=outputpath)
+
     fig = plt.figure(dpi=700)
 
     sns.set_context("talk")
-    sns.set(rc={'figure.figsize': (10, 10)})
+    sns.set(rc={'figure.figsize': (10, 10)},  font_scale=1.75)
     ax = sns.barplot(data=active_electrodes, palette='cividis')
     ax = sns.swarmplot(data=active_electrodes, palette='Greys_r')
+    add_stat_annotation(ax, data=active_electrodes, text_format='star', loc='inside', verbose=2, linewidth=3,
+                        box_pairs=[("DIV14", "DIV21"), ("DIV14", "DIV7"), ("DIV21", "DIV7")], perform_stat_test=False,
+                        test=None, line_offset=0.05, pvalues=pvalues)
     ax.set(title="Temporal evolution of Burst counts" + title, ylabel="Number of bursts", ylim=[-0.1, ymax])
 
     plt.savefig(outputpath + filename + "bursts_comparison_overtime.png", format='png')
@@ -72,7 +93,7 @@ def dataframe_generation(DIV_paths):
     return DIVs_df
 
 
-def FR_comparison(DIVs_df, filename, outputpath, title, ymax):
+def FR_comparison(DIVs_df, filename, offset, outputpath, title, scaling, ymax):
 
     active_electrodes = pd.DataFrame()
 
@@ -80,18 +101,23 @@ def FR_comparison(DIVs_df, filename, outputpath, title, ymax):
 
         active_electrodes[DIV] = DIVs_df[DIV]['Individual_FRs']
 
+    pvalues = oneway_ANOVA_plusTukeyHSD(DIVs_dataframe=active_electrodes, dropzero='n', file_name=filename+"FR_comparison_", outputpath=outputpath)
+
     fig = plt.figure(dpi=700)
 
     sns.set_context("talk")
-    sns.set(rc={'figure.figsize': (10, 10)})
+    sns.set(rc={'figure.figsize': (10, 10)},  font_scale=scaling)
     ax = sns.barplot(data=active_electrodes, palette='cividis')
     ax = sns.swarmplot(data=active_electrodes, palette='Greys_r')
+    add_stat_annotation(ax, data=active_electrodes, text_format='star', loc='inside', verbose=2, linewidth=3,
+                        box_pairs=[("DIV14", "DIV21"), ("DIV14", "DIV7"), ("DIV21", "DIV7")], perform_stat_test=False,
+                        test=None, line_offset=offset, line_offset_to_box=0.3, pvalues=pvalues)
     ax.set(title="Temporal evolution of firing rates" + title, ylabel="Firing rate (Hz)", ylim=[-0.02, ymax])
 
     plt.savefig(outputpath + filename + "FR_comparison_overtime.png", format='png')
 
 
-def ISI_comparison(DIVs_df, filename, outputpath, title, ymax):
+def ISI_comparison(DIVs_df, filename, offset, outputpath, title, scaling, ymax):
 
     active_electrodes = pd.DataFrame()
 
@@ -99,15 +125,96 @@ def ISI_comparison(DIVs_df, filename, outputpath, title, ymax):
 
         active_electrodes[DIV] = DIVs_df[DIV]['Individual_ISI']
 
+    pvalues = oneway_ANOVA_plusTukeyHSD(DIVs_dataframe=active_electrodes, dropzero='y', file_name=filename+"ISI_comparison_",
+                              outputpath=outputpath)
+
     fig = plt.figure(dpi=700)
 
     sns.set_context("talk")
-    sns.set(rc={'figure.figsize': (10, 10)})
+    sns.set(rc={'figure.figsize': (10, 10)},  font_scale=scaling)
     ax = sns.barplot(data=active_electrodes, palette='cividis')
     ax = sns.swarmplot(data=active_electrodes, palette='Greys_r')
-    ax.set(title="Temporal evolution of Interspike Intervals" + title, ylabel="ISI (ms)", ylim=[-0.05, ymax])
+
+    add_stat_annotation(ax, data=active_electrodes, text_format='star', loc='inside', verbose=2, linewidth=3,
+                        box_pairs=[("DIV14", "DIV21"), ("DIV14", "DIV7"), ("DIV21", "DIV7")], perform_stat_test=False,
+                        test=None, line_offset=offset, line_offset_to_box=0.15, pvalues=pvalues)
+
+    ax.set(title="Temporal evolution of ISIs" + title, ylabel="ISI (ms)", ylim=[-0.05, ymax])
 
     plt.savefig(outputpath + filename + "ISIs_comparison_overtime.png", format='png')
+
+
+def oneway_ANOVA_plusTukeyHSD(DIVs_dataframe, dropzero, file_name, outputpath):
+
+    # Dropping NaNs
+
+    NaNfree = [DIVs_dataframe[col].dropna() for col in DIVs_dataframe]
+
+    if dropzero == 'y':
+
+        # Dropping zeros
+
+        DIVs_dataframe['DIV7'] = DIVs_dataframe[DIVs_dataframe['DIV7'] > 0]
+        DIVs_dataframe['DIV14'] = DIVs_dataframe[DIVs_dataframe['DIV14'] > 0]
+        DIVs_dataframe['DIV21'] = DIVs_dataframe[DIVs_dataframe['DIV21'] > 0]
+
+    # Running the ANOVA per se
+
+    fvalue, pvalue = stats.f_oneway(*NaNfree)
+
+    print("F =", fvalue)
+    print("p =", pvalue)
+
+    # Post-hoc tests after stacking the data
+
+    stacked_data = DIVs_dataframe.stack().reset_index()
+    stacked_data = stacked_data.rename(columns={'level_0': 'id', 'level_1': 'DIV', 0: 'value'})
+
+    MultiComp = MultiComparison(stacked_data['value'].astype('float'), stacked_data['DIV'])
+
+    res = MultiComp.tukeyhsd()  # Results of the Tukey HSD
+
+    # Exporting results
+
+    summary = res.summary()
+    summary = summary.as_text()  # ANOVA summary
+
+    buffer = io.StringIO()
+    DIVs_dataframe.info(buf=buffer)
+    info = buffer.getvalue()  # Dataset info
+
+    mean = str(DIVs_dataframe.mean(axis=0))
+    std = str(DIVs_dataframe.std(axis=0))
+    pvalues = psturng(np.abs(res.meandiffs / res.std_pairs), len(res.groupsunique), res.df_total)
+
+    file = open(outputpath + file_name + "_ANOVA.txt", "w+")
+
+    file.write("Means of the dataset:")
+    file.write("\n")
+    file.write(mean)
+    file.write("\n")
+    file.write("\n")
+    file.write("STD of the dataset:")
+    file.write("\n")
+    file.write(std)
+    file.write("\n")
+    file.write("\n")
+    file.write("Relevant info of the dataset:")
+    file.write("\n")
+    file.write(info)
+    file.write("\n")
+    file.write("\n")
+    file.write(summary)
+    file.write("\n")
+    file.write("\n")
+    file.write("p-values:")
+    file.write("\n")
+    file.write("\n")
+    file.write(str(pvalues))
+
+    file.close()
+
+    return pvalues
 
 
 print("\nBrain Embodiment Laboratory at the University of Reading \nStatistical analysis of Ephys Results from Kazu, "
@@ -270,46 +377,53 @@ High_df = dataframe_generation(High_density)
 
 # Generating the plots for the percentage of active cultures overt time and condition #
 
-active_cultures(cultures_path=NumberofCultures_xlsx, filename="Over_condition_", ymax=100, outputpath=Ephys_path)
+active_cultures(cultures_path=NumberofCultures_xlsx, filename="Over_condition_", title=" condition", ymax=100,
+                outputpath=Ephys_path, scaling=1)
 
-active_cultures(cultures_path=Ncultures_overtime_xlsx, filename="Over_time_", ymax=40, outputpath=Ephys_path)
+active_cultures(cultures_path=Ncultures_overtime_xlsx, filename="Over_time_", title=" time", ymax=100,
+                outputpath=Ephys_path, scaling=2)
+
 
 # Creating the active electrodes plots without stats #
 
-active_electrodes_comparison(DIVs_df=DIVs_df, filename='Recur_', outputpath=outputpath, title=" for all cultures.")
+active_electrodes_comparison(DIVs_df=DIVs_df, filename='Recur_', outputpath=Ephys_path, scaling=2,
+                             title=" for all cultures.")
 
-active_electrodes_comparison(DIVs_df=Low_df, filename='Low-density_', outputpath=outputpath,
+
+active_electrodes_comparison(DIVs_df=Low_df, filename='Low-density_', outputpath=outputpath,  scaling=1.7,
                              title=" for low-density cultures.")
 
-active_electrodes_comparison(DIVs_df=Mid_df, filename='Mid-density_', outputpath=outputpath,
-                             title=" for medium-density cultures.")
 
-active_electrodes_comparison(DIVs_df=High_df, filename='High-density_', outputpath=outputpath,
+active_electrodes_comparison(DIVs_df=Mid_df, filename='Mid-density_', outputpath=outputpath, scaling=1.7,
+                             title=" for mid-density cultures.")
+
+active_electrodes_comparison(DIVs_df=High_df, filename='High-density_', outputpath=outputpath, scaling=1.7,
                              title=" for high-density cultures.")
 
-#active_electrodes_comparison(DIVs_df=DIVs_MCdf, filename='MC', outputpath=outputpath)
+# active_electrodes_comparison(DIVs_df=DIVs_MCdf, filename='MC', outputpath=outputpath)
 
 # Creating the Firing Rates (Hz) plots without stats #
 
-FR_comparison(DIVs_df=DIVs_df, filename='Recur_', outputpath=Ephys_path, title=" for all cultures.", ymax=12)
+FR_comparison(DIVs_df=DIVs_df, filename='Recur_', offset=0.1, outputpath=Ephys_path, title=" for all cultures.",
+              scaling=1, ymax=20)
 
-FR_comparison(DIVs_df=Low_df, filename='Low-density_', outputpath=outputpath, title=" for low-density cultures.",
-              ymax=12)
+FR_comparison(DIVs_df=Low_df, filename='Low-density_', offset=0.1, outputpath=outputpath, title=" for low-density cultures.",
+              scaling=1.75, ymax=20)
 
-FR_comparison(DIVs_df=Mid_df, filename='Mid-density_', outputpath=outputpath, title=" for medium-density cultures.",
-              ymax=5)
+FR_comparison(DIVs_df=Mid_df, filename='Mid-density_', offset=0.3, outputpath=outputpath,
+              title=" for medium-density cultures.", scaling=1.75, ymax=5)
 
-FR_comparison(DIVs_df=High_df, filename='High-density_', outputpath=outputpath, title=" for high-density cultures.",
-              ymax=5)
+FR_comparison(DIVs_df=High_df, filename='High-density_', offset=0.5, outputpath=outputpath,
+              title=" for high-density cultures.", scaling=1.75, ymax=5)
 
 # Creating the Burst count plots without stats #
 
-burst_comparison(DIVs_df=DIVs_df, filename='Recur_', outputpath=Ephys_path, title=" for all cultures.", ymax=60)
+burst_comparison(DIVs_df=DIVs_df, filename='Recur_', outputpath=Ephys_path, title=" for all cultures.", ymax=100)
 
 burst_comparison(DIVs_df=Low_df, filename='Low-density_', outputpath=outputpath, title=" for low-density cultures.",
-                 ymax=60)
+                 ymax=100)
 
-burst_comparison(DIVs_df=Mid_df, filename='Mid-density_', outputpath=outputpath, title=" for medium-density cultures.",
+burst_comparison(DIVs_df=Mid_df, filename='Mid-density_', outputpath=outputpath, title=" for mid-density cultures.",
                  ymax=60)
 
 burst_comparison(DIVs_df=High_df, filename='High-density_', outputpath=outputpath, title=" for high-density cultures.",
@@ -317,13 +431,15 @@ burst_comparison(DIVs_df=High_df, filename='High-density_', outputpath=outputpat
 
 # Creating the comparative ISIs plots without stats #
 
-ISI_comparison(DIVs_df=DIVs_df, filename='Recur_', outputpath=Ephys_path, title=" for all cultures.", ymax=15000)
+ISI_comparison(DIVs_df=DIVs_df, filename='Recur_', offset=0.1, outputpath=Ephys_path, title=" for all cultures.",
+               scaling=1.2, ymax=20000)
 
-ISI_comparison(DIVs_df=Low_df, filename='Low-density_', outputpath=outputpath, title=" for low-density cultures.",
-               ymax=15000)
+ISI_comparison(DIVs_df=Low_df, filename='Low-density_', offset=0.1, outputpath=outputpath, title=" for low-density cultures.",
+               scaling=2, ymax=15000)
 
-ISI_comparison(DIVs_df=Mid_df, filename='Mid-density_', outputpath=outputpath, title=" for medium-density cultures.",
-               ymax=15000)
+ISI_comparison(DIVs_df=Mid_df, filename='Mid-density_', offset=0.3, outputpath=outputpath, title=" for mid-density cultures.",
+               scaling=2, ymax=6000)
 
-ISI_comparison(DIVs_df=High_df, filename='High-density_', outputpath=outputpath, title=" for high-density cultures.",
-               ymax=15000)
+ISI_comparison(DIVs_df=High_df, filename='High-density_', offset=0.3, outputpath=outputpath, title=" for high-density cultures.",
+               scaling=2, ymax=6000)
+
