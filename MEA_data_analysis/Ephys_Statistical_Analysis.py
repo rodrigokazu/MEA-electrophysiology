@@ -5,6 +5,7 @@ import seaborn as sns
 
 # Function definitions #
 
+
 def active_cultures(cultures_path, filename, outputpath, ymax):
 
     CultureNumber_df = pd.read_excel(cultures_path)
@@ -22,7 +23,7 @@ def active_cultures(cultures_path, filename, outputpath, ymax):
     plt.savefig(outputpath + filename + "active_cultures_comparison.png", format='png')
 
 
-def active_electrodes_comparison(DIVs_df, filename, outputpath):
+def active_electrodes_comparison(DIVs_df, filename, outputpath, title):
 
     active_electrodes = pd.DataFrame()
 
@@ -36,12 +37,12 @@ def active_electrodes_comparison(DIVs_df, filename, outputpath):
     sns.set(rc={'figure.figsize': (10, 10)})
     ax = sns.barplot(data=active_electrodes, palette='cividis')
     ax = sns.swarmplot(data=active_electrodes, palette='Greys_r')
-    ax.set(title="Temporal evolution of MEA active electrodes", ylabel="Active electrodes", ylim=[0, 35])
+    ax.set(title="Number of active electrodes over time" + title, ylabel="Active electrodes", ylim=[-0.1, 35])
 
     plt.savefig(outputpath + filename + "active_electrodes_comparison.png", format='png')
 
 
-def burst_comparison(DIVs_df, filename, outputpath, ymax):
+def burst_comparison(DIVs_df, filename, outputpath, title, ymax):
 
     active_electrodes = pd.DataFrame()
 
@@ -55,7 +56,7 @@ def burst_comparison(DIVs_df, filename, outputpath, ymax):
     sns.set(rc={'figure.figsize': (10, 10)})
     ax = sns.barplot(data=active_electrodes, palette='cividis')
     ax = sns.swarmplot(data=active_electrodes, palette='Greys_r')
-    ax.set(title="Temporal evolution of Burst counts", ylabel="Number of bursts", ylim=[-0.05, ymax])
+    ax.set(title="Temporal evolution of Burst counts" + title, ylabel="Number of bursts", ylim=[-0.1, ymax])
 
     plt.savefig(outputpath + filename + "bursts_comparison_overtime.png", format='png')
 
@@ -71,7 +72,7 @@ def dataframe_generation(DIV_paths):
     return DIVs_df
 
 
-def FR_comparison(DIVs_df, filename, outputpath):
+def FR_comparison(DIVs_df, filename, outputpath, title, ymax):
 
     active_electrodes = pd.DataFrame()
 
@@ -85,16 +86,17 @@ def FR_comparison(DIVs_df, filename, outputpath):
     sns.set(rc={'figure.figsize': (10, 10)})
     ax = sns.barplot(data=active_electrodes, palette='cividis')
     ax = sns.swarmplot(data=active_electrodes, palette='Greys_r')
-    ax.set(title="Temporal evolution of firing rates", ylabel="Firing rate (Hz)", ylim=[-0.05, 12])
+    ax.set(title="Temporal evolution of firing rates" + title, ylabel="Firing rate (Hz)", ylim=[-0.02, ymax])
 
     plt.savefig(outputpath + filename + "FR_comparison_overtime.png", format='png')
 
 
-def ISI_comparison(DIVs_df, filename, outputpath, ymax):
+def ISI_comparison(DIVs_df, filename, outputpath, title, ymax):
 
     active_electrodes = pd.DataFrame()
 
     for DIV in DIVs_df:
+
         active_electrodes[DIV] = DIVs_df[DIV]['Individual_ISI']
 
     fig = plt.figure(dpi=700)
@@ -103,13 +105,13 @@ def ISI_comparison(DIVs_df, filename, outputpath, ymax):
     sns.set(rc={'figure.figsize': (10, 10)})
     ax = sns.barplot(data=active_electrodes, palette='cividis')
     ax = sns.swarmplot(data=active_electrodes, palette='Greys_r')
-    ax.set(title="Temporal evolution of Interspike Intervals", ylabel="ISI (ms)", ylim=[-0.05, ymax])
+    ax.set(title="Temporal evolution of Interspike Intervals" + title, ylabel="ISI (ms)", ylim=[-0.05, ymax])
 
     plt.savefig(outputpath + filename + "ISIs_comparison_overtime.png", format='png')
 
 
 print("\nBrain Embodiment Laboratory at the University of Reading \nStatistical analysis of Ephys Results from Kazu, "
-      "R.S. thesis, 2020. \n Please change your filepath inside the code. \n")
+      "R.S. thesis, 2020. \nPlease change your filepath inside the code. \n")
 
 # PATHs block #
 # MC paths are the paths of recordings where spike detection happened inside MC_Rack #
@@ -163,6 +165,8 @@ DIV21_high = 'C:\\Users\\pc1rss\\Dropbox\\PhD\\Backup_Experimental_Data\\Ephys_d
 DIV7_MCpath = 'C:\\Users\\pc1rss\\Dropbox\\PhD\\Backup_Experimental_Data\\Ephys_data_with_mats\\Per DIV\\DIV7' \
             '\\MC_DIV_Analysis_Output.xlsx'
 
+"""
+
 DIV7_MClow = 'C:\\Users\\pc1rss\\Dropbox\\PhD\\Backup_Experimental_Data\\Ephys_data_with_mats\\Per density\\DIV7' \
            '\\Low-density\\MC_DIV_Analysis_Output.xlsx'
 
@@ -171,11 +175,15 @@ DIV7_MCmid = 'C:\\Users\\pc1rss\\Dropbox\\PhD\\Backup_Experimental_Data\\Ephys_d
 
 DIV7_MChigh = 'C:\\Users\\pc1rss\\Dropbox\\PhD\\Backup_Experimental_Data\\Ephys_data_with_mats\\Per density\\DIV7' \
             '\\High-density\\MC_DIV_Analysis_Output.xlsx'
+            
+"""
 
 # DIV 14
 
 DIV14_MCpath = 'C:\\Users\\pc1rss\\Dropbox\\PhD\\Backup_Experimental_Data\\Ephys_data_with_mats\\Per DIV\\DIV14' \
              '\\MC_DIV_Analysis_Output.xlsx'
+
+"""
 
 DIV14_MClow = 'C:\\Users\\pc1rss\\Dropbox\\PhD\\Backup_Experimental_Data\\Ephys_data_with_mats\\Per density\\DIV14' \
             '\\Low-density\\MC_DIV_Analysis_Output.xlsx'
@@ -185,11 +193,15 @@ DIV14_MCmid = 'C:\\Users\\pc1rss\\Dropbox\\PhD\\Backup_Experimental_Data\\Ephys_
 
 DIV14_MChigh = 'C:\\Users\\pc1rss\\Dropbox\\PhD\\Backup_Experimental_Data\\Ephys_data_with_mats\\Per density\\DIV14' \
              '\\High-density\\MC_DIV_Analysis_Output.xlsx'
+            
+"""
 
 # DIV 21
 
 DIV21_MCpath = 'C:\\Users\\pc1rss\\Dropbox\\PhD\\Backup_Experimental_Data\\Ephys_data_with_mats\\Per DIV\\DIV21' \
              '\\MC_DIV_Analysis_Output.xlsx'
+
+"""
 
 DIV21_MClow = 'C:\\Users\\pc1rss\\Dropbox\\PhD\\Backup_Experimental_Data\\Ephys_data_with_mats\\Per density\\DIV21' \
             '\\Low-density\\MC_DIV_Analysis_Output.xlsx'
@@ -199,10 +211,12 @@ DIV21_MCmid = 'C:\\Users\\pc1rss\\Dropbox\\PhD\\Backup_Experimental_Data\\Ephys_
 
 DIV21_MChigh = 'C:\\Users\\pc1rss\\Dropbox\\PhD\\Backup_Experimental_Data\\Ephys_data_with_mats\\Per density\\DIV21' \
             '\\High-density\\MC_DIV_Analysis_Output.xlsx'
+            
+"""
 
 # Saving locations
 
-outputpath = 'C:\\Users\\pc1rss\\Dropbox\\PhD\\Backup_Experimental_Data\\Ephys_data_with_mats\\Per DIV\\'
+outputpath = 'C:\\Users\\pc1rss\\Dropbox\\PhD\\Backup_Experimental_Data\\Ephys_data_with_mats\\Per density\\'
 
 Ephys_path = 'C:\\Users\\pc1rss\\Dropbox\\PhD\\Thesis\\Analysis_Pipeline\\Ephys quantification\\'
 
@@ -228,11 +242,15 @@ High_density = {"DIV7": DIV7_high, "DIV14": DIV14_high, "DIV21": DIV21_high}
 
 DIV_MCpaths = {"DIV7": DIV7_MCpath, "DIV14": DIV14_MCpath, "DIV21": DIV21_MCpath}
 
+"""
+
 Low_MCdensity = {"DIV7": DIV7_MClow, "DIV14": DIV14_MClow, "DIV21": DIV21_MClow}
 
 Mid_MCdensity = {"DIV7": DIV7_MCmid, "DIV14": DIV14_MCmid, "DIV21": DIV21_MCmid}
 
 High_MCdensity = {"DIV7": DIV7_MChigh, "DIV14": DIV14_MChigh, "DIV21": DIV21_MChigh}
+
+"""
 
 # Analysis block #
 
@@ -240,7 +258,15 @@ High_MCdensity = {"DIV7": DIV7_MChigh, "DIV14": DIV14_MChigh, "DIV21": DIV21_MCh
 
 DIVs_df = dataframe_generation(DIV_paths)
 
-#DIVs_MCdf = dataframe_generation(DIV_MCpaths)
+DIVs_MCdf = dataframe_generation(DIV_MCpaths)
+
+# Generating the dataframes per cellular density #
+
+Low_df = dataframe_generation(Low_density)
+
+Mid_df = dataframe_generation(Mid_density)
+
+High_df = dataframe_generation(High_density)
 
 # Generating the plots for the percentage of active cultures overt time and condition #
 
@@ -250,18 +276,54 @@ active_cultures(cultures_path=Ncultures_overtime_xlsx, filename="Over_time_", ym
 
 # Creating the active electrodes plots without stats #
 
-active_electrodes_comparison(DIVs_df=DIVs_df, filename='Recur_', outputpath=outputpath)
+active_electrodes_comparison(DIVs_df=DIVs_df, filename='Recur_', outputpath=outputpath, title=" for all cultures.")
+
+active_electrodes_comparison(DIVs_df=Low_df, filename='Low-density_', outputpath=outputpath,
+                             title=" for low-density cultures.")
+
+active_electrodes_comparison(DIVs_df=Mid_df, filename='Mid-density_', outputpath=outputpath,
+                             title=" for medium-density cultures.")
+
+active_electrodes_comparison(DIVs_df=High_df, filename='High-density_', outputpath=outputpath,
+                             title=" for high-density cultures.")
 
 #active_electrodes_comparison(DIVs_df=DIVs_MCdf, filename='MC', outputpath=outputpath)
 
 # Creating the Firing Rates (Hz) plots without stats #
 
-FR_comparison(DIVs_df=DIVs_df, filename='Recur_', outputpath=Ephys_path)
+FR_comparison(DIVs_df=DIVs_df, filename='Recur_', outputpath=Ephys_path, title=" for all cultures.", ymax=12)
+
+FR_comparison(DIVs_df=Low_df, filename='Low-density_', outputpath=outputpath, title=" for low-density cultures.",
+              ymax=12)
+
+FR_comparison(DIVs_df=Mid_df, filename='Mid-density_', outputpath=outputpath, title=" for medium-density cultures.",
+              ymax=5)
+
+FR_comparison(DIVs_df=High_df, filename='High-density_', outputpath=outputpath, title=" for high-density cultures.",
+              ymax=5)
 
 # Creating the Burst count plots without stats #
 
-burst_comparison(DIVs_df=DIVs_df, filename='Recur_', outputpath=Ephys_path, ymax=60)
+burst_comparison(DIVs_df=DIVs_df, filename='Recur_', outputpath=Ephys_path, title=" for all cultures.", ymax=60)
+
+burst_comparison(DIVs_df=Low_df, filename='Low-density_', outputpath=outputpath, title=" for low-density cultures.",
+                 ymax=60)
+
+burst_comparison(DIVs_df=Mid_df, filename='Mid-density_', outputpath=outputpath, title=" for medium-density cultures.",
+                 ymax=60)
+
+burst_comparison(DIVs_df=High_df, filename='High-density_', outputpath=outputpath, title=" for high-density cultures.",
+                 ymax=60)
 
 # Creating the comparative ISIs plots without stats #
 
-ISI_comparison(DIVs_df=DIVs_df, filename='Recur_', outputpath=Ephys_path, ymax=15000)
+ISI_comparison(DIVs_df=DIVs_df, filename='Recur_', outputpath=Ephys_path, title=" for all cultures.", ymax=15000)
+
+ISI_comparison(DIVs_df=Low_df, filename='Low-density_', outputpath=outputpath, title=" for low-density cultures.",
+               ymax=15000)
+
+ISI_comparison(DIVs_df=Mid_df, filename='Mid-density_', outputpath=outputpath, title=" for medium-density cultures.",
+               ymax=15000)
+
+ISI_comparison(DIVs_df=High_df, filename='High-density_', outputpath=outputpath, title=" for high-density cultures.",
+               ymax=15000)
