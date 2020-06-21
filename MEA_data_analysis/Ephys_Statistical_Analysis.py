@@ -14,7 +14,7 @@ plt.rcParams.update({'font.size': 14})
 # Function definitions #
 
 
-def active_cultures(cultures_path, filename, outputpath, scaling, title, ymax):
+def active_cultures(cultures_path, filename, outputpath, scaling, title, ytitle, ymax):
 
     CultureNumber_df = pd.read_excel(cultures_path)
 
@@ -26,7 +26,7 @@ def active_cultures(cultures_path, filename, outputpath, scaling, title, ymax):
     sns.set(rc={'figure.figsize': (10, 10)},  font_scale=scaling)
     ax = sns.barplot(data=CultureNumber_df, palette='cividis')
     # ax = sns.swarmplot(data=CultureNumber_df, palette='Greys_r')
-    ax.set(title="Percentage of active cultures per" + title, ylabel="Percentage of active cultures", ylim=[0, ymax])
+    ax.set(title=title, ylabel=ytitle, ylim=[0, ymax])
 
     plt.savefig(outputpath + filename + "active_cultures_comparison.png", format='png')
 
@@ -169,9 +169,9 @@ def oneway_ANOVA_plusTukeyHSD(DIVs_dataframe, dropzero, file_name, outputpath):
 
         # Dropping zeros
 
-        DIVs_dataframe['DIV7'] = DIVs_dataframe[DIVs_dataframe['DIV7'] > 0]
-        DIVs_dataframe['DIV14'] = DIVs_dataframe[DIVs_dataframe['DIV14'] > 0]
-        DIVs_dataframe['DIV21'] = DIVs_dataframe[DIVs_dataframe['DIV21'] > 0]
+        DIVs_dataframe['DIV7'] = DIVs_dataframe['DIV7'][DIVs_dataframe['DIV7'] > 0]
+        DIVs_dataframe['DIV14'] = DIVs_dataframe['DIV14'][DIVs_dataframe['DIV14'] > 0]
+        DIVs_dataframe['DIV21'] = DIVs_dataframe['DIV21'][DIVs_dataframe['DIV21'] > 0]
 
     # Running the ANOVA per se
 
@@ -179,6 +179,7 @@ def oneway_ANOVA_plusTukeyHSD(DIVs_dataframe, dropzero, file_name, outputpath):
 
     print("F =", fvalue)
     print("p =", pvalue)
+    ANOVAresults = "\n" + str(fvalue) + " " + str(pvalue) + "\n\n"
 
     # Post-hoc tests after stacking the data
 
@@ -210,7 +211,9 @@ def oneway_ANOVA_plusTukeyHSD(DIVs_dataframe, dropzero, file_name, outputpath):
     file.write(std)
     file.write("\n \nRelevant info of the dataset: \n")
     file.write(info)
-    file.write(summary)
+    file.write("\n \nF-value and overall p-value: \n")
+    file.write(ANOVAresults)  # ANOVA results
+    file.write(summary)  # ANOVA summary
     file.write("\n \np-values: \n")
     file.write(str(pvalues))
 
@@ -377,15 +380,17 @@ Mid_df = dataframe_generation(Mid_density)
 
 High_df = dataframe_generation(High_density)
 
+
 # Generating the plots for the percentage of active cultures overt time and condition #
 
-active_cultures(cultures_path=NumberofCultures_xlsx, filename="Over_condition_", title=" condition", ymax=100,
-                outputpath=Ephys_path, scaling=1)
+active_cultures(cultures_path=NumberofCultures_xlsx, filename="Over_condition_",
+                title="Percentage of active cultures per condition", ytitle="Percentage of active cultures",
+                ymax=100, outputpath=Ephys_path, scaling=1)
 
-active_cultures(cultures_path=Ncultures_overtime_xlsx, filename="Over_time_", title=" time", ymax=100,
-                outputpath=Ephys_path, scaling=2)
+active_cultures(cultures_path=Ncultures_overtime_xlsx, filename="Over_time_",
+                title="Number of active cultures per DIV", ytitle="Number of active cultures",
+                ymax=40, outputpath=Ephys_path, scaling=2)
 
-"""
 
 # Creating the active electrodes plots with stats #
 
@@ -446,4 +451,3 @@ ISI_comparison(DIVs_df=Mid_df, filename='Mid-density_', offset=0.3, outputpath=o
 ISI_comparison(DIVs_df=High_df, filename='High-density_', offset=0.3, outputpath=outputpath, title=" for high-density cultures.",
                scaling=2, ymax=6000)
 
-"""
