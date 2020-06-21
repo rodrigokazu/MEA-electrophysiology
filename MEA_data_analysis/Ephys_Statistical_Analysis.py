@@ -146,6 +146,21 @@ def ISI_comparison(DIVs_df, filename, offset, outputpath, title, scaling, ymax):
 
 def oneway_ANOVA_plusTukeyHSD(DIVs_dataframe, dropzero, file_name, outputpath):
 
+    """ Runs a one-way ANOVA with a post-hoc test (Tukey HSD)
+
+           Arguments:
+
+            DIVs_dataframe(dict): Dictionary with the data to be tested (DIVs as column titles)
+            dropzero(char): 'y' or 'n' to remove the zeros of the dataset
+            file_name(str): Prefix of name on the file to be saved.
+            output_path(str): Full path of the output file
+
+          Returns:
+
+             pvalues list and ANOVA summary in a txt file
+
+          """
+
     # Dropping NaNs
 
     NaNfree = [DIVs_dataframe[col].dropna() for col in DIVs_dataframe]
@@ -189,27 +204,14 @@ def oneway_ANOVA_plusTukeyHSD(DIVs_dataframe, dropzero, file_name, outputpath):
 
     file = open(outputpath + file_name + "_ANOVA.txt", "w+")
 
-    file.write("Means of the dataset:")
-    file.write("\n")
+    file.write("Means of the dataset: \n")
     file.write(mean)
-    file.write("\n")
-    file.write("\n")
-    file.write("STD of the dataset:")
-    file.write("\n")
+    file.write("\n \nSTD of the dataset: \n")
     file.write(std)
-    file.write("\n")
-    file.write("\n")
-    file.write("Relevant info of the dataset:")
-    file.write("\n")
+    file.write("\n \nRelevant info of the dataset: \n")
     file.write(info)
-    file.write("\n")
-    file.write("\n")
     file.write(summary)
-    file.write("\n")
-    file.write("\n")
-    file.write("p-values:")
-    file.write("\n")
-    file.write("\n")
+    file.write("\n \np-values: \n")
     file.write(str(pvalues))
 
     file.close()
@@ -383,6 +385,7 @@ active_cultures(cultures_path=NumberofCultures_xlsx, filename="Over_condition_",
 active_cultures(cultures_path=Ncultures_overtime_xlsx, filename="Over_time_", title=" time", ymax=100,
                 outputpath=Ephys_path, scaling=2)
 
+"""
 
 # Creating the active electrodes plots with stats #
 
@@ -443,3 +446,4 @@ ISI_comparison(DIVs_df=Mid_df, filename='Mid-density_', offset=0.3, outputpath=o
 ISI_comparison(DIVs_df=High_df, filename='High-density_', offset=0.3, outputpath=outputpath, title=" for high-density cultures.",
                scaling=2, ymax=6000)
 
+"""
