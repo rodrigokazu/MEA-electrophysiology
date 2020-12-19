@@ -256,22 +256,6 @@ def mockdata_60elecs(output_path):
 
         print('RAW_NeuronalData object for ', electrode, ' created at ', time.asctime(time.localtime(time.time())))
 
-        # Filtering #
-
-        #mockMEA[electrode] = mockMEA[electrode].bandstop_resonator()
-
-        #visualise_noise(output_path=output_path, duration=np.array(mockMEA[electrode].mcd_data['ms']),
-        #                noise=np.array(mockMEA[electrode].mcd_data[str(electrode)]),
-        #                filename="Bandstop_mock"+str(electrode))
-
-        #mockMEA[electrode] = mockMEA[electrode].highpass()
-
-        #visualise_noise(output_path=output_path, noise=mockMEA[electrode].mcd_data[str(electrode)],
-        #                filename="Highpass_mock"+str(electrode))
-
-        #print('Data filtered (20Hz High Pass and 50Hz bandstop resonator (notch) at',
-        #      time.asctime(time.localtime(time.time())))
-
         # Detecting #
 
         spikes_detected = mockMEA[electrode].recursive_spike_detection(MEA='Synthetic'+str(electrode), figpath=output_path)
@@ -281,6 +265,15 @@ def mockdata_60elecs(output_path):
 
 
 def zeros():
+
+    """ Creates an empty electrode dataset with sampling rate of 25000000 milisamples per second, 25000 Hz and duration
+    of 231 seconds.
+
+
+       Returns:
+
+          Duration of empty recording, array of zeros and threshold of -5.5 STD
+       """
 
     zero = np.zeros(5792501)
     duration = np.linspace(0, 231, 5792501)  # 231 seconds, sampling rate of 25 kHz
@@ -294,14 +287,14 @@ def highpass_test(dataset):
     """ Creates a Butterworth filter with a cutoff of 0.02 times the Nyquist rate, or 20 Hz and runs it through a
     RAW_NeuronalData object with sampling rate of 25000000 milisamples per second, 25000 Hz.
 
-            Arguments:
+        Arguments:
 
-                RAW_NeuronalData object
+            RAW_NeuronalData object
 
-            Returns:
+        Returns:
 
-               Filtered RAW_NeuronalData object
-            """
+           Filtered RAW_NeuronalData object
+        """
 
     nyq = 0.5 * 25000
     normal_cutoff = 300 / nyq
