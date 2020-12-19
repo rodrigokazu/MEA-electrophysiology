@@ -526,6 +526,6 @@ MEAs_paths = MEA_path_acquisition(full_path)
 
 MC_detected_ephys_analysis(MEAs_paths=MEAs_paths, output_path=full_path)
 
-#folderwide_recursive_spike_detection(MEAs_paths)
+folderwide_recursive_spike_detection(MEAs_paths)
 
-#folderwide_complete_analysis(MEAs_paths=MEAs_paths, output_path=full_path)
+folderwide_complete_analysis(MEAs_paths=MEAs_paths, output_path=full_path)
