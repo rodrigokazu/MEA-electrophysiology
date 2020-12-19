@@ -3,8 +3,7 @@
    University of Reading
    School of System Engineering
    Brain Embodiment Laboratory
-   Johnathan Mayke Melo Neto
-   Vitor de Carvalho Hazin
+   Rodrigo Kazu Siqueira
    January/2015
 ******************************************************* */
 
