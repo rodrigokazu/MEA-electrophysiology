@@ -3,8 +3,6 @@
    University of Reading
    School of System Engineering
    Brain Embodiment Laboratory
-   Johnathan Mayke Melo Neto
-   Vitor de Carvalho Hazin
    January/2015
 ******************************************************* */
 
@@ -432,7 +430,7 @@ DWORD WINAPI threadSend(LPVOID s)
 
 
 /* *************************************************
-     Thread that detects spikes - N√O VAI EXISTIR FUTURAMENTE POIS O TIMER SUBSTITUIR¡ SUA FUN«√O !!!
+     Thread that detects spikes - N√ÉO VAI EXISTIR FUTURAMENTE POIS O TIMER SUBSTITUIR√Å SUA FUN√á√ÉO !!!
 **************************************************** */
 DWORD WINAPI threadDetectSpike(void)
 {
