@@ -10,6 +10,15 @@ plt.rcParams.update({'font.size': 10})
 
 def exponential_spike_generator():
 
+    """ Generated spiketimes sampled from an exponential distribution to be imposed to a RAW_NeuronalData channel with
+    sampling rate of 25000000 milisamples per second, 25000 Hz.
+
+
+       Returns:
+
+          Spike times and overall spike number.
+       """
+
     spikes = []
     num_cells = 1
 
